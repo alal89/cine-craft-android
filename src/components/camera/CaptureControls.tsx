@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
   Camera, 
@@ -28,6 +28,34 @@ export const CaptureControls = ({
 }: CaptureControlsProps) => {
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [timerEnabled, setTimerEnabled] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+
+  // Timer effect for recording
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isRecording) {
+      setRecordingTime(0);
+      interval = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      setRecordingTime(0);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isRecording]);
+
+  // Format time as MM:SS
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const handleMainAction = () => {
     if (currentMode === 'photo') {
@@ -70,9 +98,9 @@ export const CaptureControls = ({
           size="lg"
           onClick={handleMainAction}
           className={`
-            w-20 h-20 rounded-full border-4 border-white/30 
+            w-20 h-20 rounded-full border-4 border-white/30 flex flex-col items-center justify-center
             ${isRecording 
-              ? 'bg-accent hover:bg-accent/90 animate-pulse-glow' 
+              ? 'bg-red-600 hover:bg-red-700 animate-pulse-glow' 
               : 'bg-gradient-cinema hover:opacity-90'
             }
             transition-all duration-300
@@ -81,20 +109,16 @@ export const CaptureControls = ({
           {currentMode === 'photo' ? (
             <Camera className="w-8 h-8" />
           ) : isRecording ? (
-            <Square className="w-6 h-6" />
+            <>
+              <Square className="w-6 h-6 mb-1" />
+              <span className="text-xs font-mono leading-none">
+                {formatTime(recordingTime)}
+              </span>
+            </>
           ) : (
             <Video className="w-8 h-8" />
           )}
         </Button>
-        
-        {/* Recording timer */}
-        {isRecording && (
-          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2">
-            <div className="bg-black/80 px-3 py-1 rounded-full">
-              <span className="text-white text-sm font-mono">00:42</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Right controls */}
