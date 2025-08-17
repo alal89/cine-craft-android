@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CameraPreview } from '@/components/camera/CameraPreview';
 import { ControlPanel } from '@/components/camera/ControlPanel';
 import { CaptureControls } from '@/components/camera/CaptureControls';
+import { ZoomControls } from '@/components/camera/ZoomControls';
 import { Histogram } from '@/components/camera/Histogram';
 import { StatusDisplay } from '@/components/camera/StatusDisplay';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ const Index = () => {
   const [currentMode, setCurrentMode] = useState<'photo' | 'video'>('video');
   const [isRecording, setIsRecording] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [zoom, setZoom] = useState(1);
   const { toast } = useToast();
 
   const handleCapture = () => {
@@ -44,6 +46,10 @@ const Index = () => {
     });
   };
 
+  const handleZoomChange = (newZoom: number) => {
+    setZoom(newZoom);
+  };
+
   return (
     <div className="min-h-screen bg-cinema-background flex flex-col relative overflow-hidden">
       {/* Status bar */}
@@ -52,7 +58,11 @@ const Index = () => {
       {/* Main camera view */}
       <div className="flex-1 relative">
         <div className="absolute inset-0">
-          <CameraPreview isRecording={isRecording} currentMode={currentMode} />
+          <CameraPreview 
+            isRecording={isRecording} 
+            currentMode={currentMode} 
+            zoom={zoom}
+          />
         </div>
 
         {/* Top controls overlay */}
@@ -113,6 +123,9 @@ const Index = () => {
             </div>
           </div>
         </div>
+
+        {/* Zoom controls */}
+        <ZoomControls onZoomChange={handleZoomChange} />
       </div>
 
       {/* Control panel - collapsible */}

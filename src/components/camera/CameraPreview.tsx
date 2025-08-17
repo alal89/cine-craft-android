@@ -4,9 +4,10 @@ import { Camera } from 'lucide-react';
 interface CameraPreviewProps {
   isRecording: boolean;
   currentMode: 'photo' | 'video';
+  zoom: number;
 }
 
-export const CameraPreview = ({ isRecording, currentMode }: CameraPreviewProps) => {
+export const CameraPreview = ({ isRecording, currentMode, zoom }: CameraPreviewProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
@@ -53,7 +54,10 @@ export const CameraPreview = ({ isRecording, currentMode }: CameraPreviewProps) 
           autoPlay
           muted
           playsInline
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-300"
+          style={{
+            transform: `scale(${zoom})`
+          }}
         />
       ) : (
         <div className="w-full h-full bg-cinema-surface flex items-center justify-center">
