@@ -64,10 +64,19 @@ export const CameraPreview = ({ isRecording, currentMode }: CameraPreviewProps) 
         </div>
       )}
       
+      {/* Recording border indicator */}
+      {isRecording && (
+        <div className="absolute inset-0 border-4 border-red-500 pointer-events-none animate-pulse-glow rounded-lg">
+          <div className="absolute inset-0 border-2 border-red-400/60 rounded-lg">
+            <div className="absolute inset-0 border border-red-300/40 rounded-lg"></div>
+          </div>
+        </div>
+      )}
+
       {/* Recording indicator */}
       {isRecording && (
         <div className="absolute top-4 left-4 flex items-center space-x-2 animate-pulse-glow">
-          <div className="w-3 h-3 bg-accent rounded-full"></div>
+          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
           <span className="text-white text-sm font-medium">REC</span>
         </div>
       )}
