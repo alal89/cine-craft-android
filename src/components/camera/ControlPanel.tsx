@@ -19,6 +19,7 @@ interface ControlPanelProps {
 
 export const ControlPanel = ({ currentMode, onModeChange }: ControlPanelProps) => {
   const [iso, setIso] = useState([100]);
+  const [isAutoIso, setIsAutoIso] = useState(true);
   const [shutter, setShutter] = useState([60]);
   const [focus, setFocus] = useState([50]);
   const [whiteBalance, setWhiteBalance] = useState([5600]);
@@ -120,7 +121,19 @@ export const ControlPanel = ({ currentMode, onModeChange }: ControlPanelProps) =
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm text-cinema-text-secondary">ISO</span>
-            <span className="text-sm text-cinema-text-primary">{iso[0]}</span>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={isAutoIso ? 'default' : 'secondary'}
+                size="sm"
+                onClick={() => setIsAutoIso(!isAutoIso)}
+                className="text-xs px-2 py-1 h-6"
+              >
+                {isAutoIso ? 'AUTO' : 'MAN'}
+              </Button>
+              <span className="text-sm text-cinema-text-primary">
+                {isAutoIso ? 'AUTO' : iso[0]}
+              </span>
+            </div>
           </div>
           <Slider
             value={iso}
@@ -128,7 +141,8 @@ export const ControlPanel = ({ currentMode, onModeChange }: ControlPanelProps) =
             max={12800}
             min={50}
             step={50}
-            className="w-full"
+            className={`w-full ${isAutoIso ? 'opacity-50 pointer-events-none' : ''}`}
+            disabled={isAutoIso}
           />
         </div>
 
