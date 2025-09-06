@@ -13,6 +13,7 @@ const Index = () => {
   const [currentMode, setCurrentMode] = useState<'photo' | 'video'>('video');
   const [isRecording, setIsRecording] = useState(false);
   const [showControls, setShowControls] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
   const [zoom, setZoom] = useState(1);
   const { toast } = useToast();
 
@@ -62,6 +63,7 @@ const Index = () => {
             isRecording={isRecording} 
             currentMode={currentMode} 
             zoom={zoom}
+            showGrid={showGrid}
           />
         </div>
 
@@ -80,6 +82,21 @@ const Index = () => {
             <Button
               variant="secondary"
               size="sm"
+              onClick={() => setShowGrid(!showGrid)}
+              className={`bg-black/30 backdrop-blur-sm ${showGrid ? 'bg-cinema-primary/30' : ''}`}
+              title="Grille de niveau"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="9" y1="3" x2="9" y2="21"/>
+                <line x1="15" y1="3" x2="15" y2="21"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="3" y1="15" x2="21" y2="15"/>
+              </svg>
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               className="bg-black/30 backdrop-blur-sm"
             >
               <Settings2 className="w-4 h-4" />
@@ -87,42 +104,44 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Side panel - histogram and monitoring */}
-        <div className="absolute right-4 top-20 bottom-32 w-56 space-y-4 z-10">
-          <Histogram />
-          
-          {/* Exposure meter */}
-          <div className="bg-cinema-surface-elevated p-3 rounded-lg">
-            <h4 className="text-cinema-text-secondary text-xs font-medium mb-2">Exposition</h4>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-cinema-text-muted">-2</span>
-              <div className="flex-1 h-2 bg-black/20 rounded-full relative">
-                <div className="absolute left-1/2 top-0 w-0.5 h-full bg-white"></div>
-                <div className="absolute left-1/3 top-0 w-1 h-full bg-cinema-primary rounded-full"></div>
+        {/* Side panel - histogram and monitoring - only show when controls are open */}
+        {showControls && (
+          <div className="absolute right-4 top-20 bottom-32 w-56 space-y-4 z-10 animate-slide-up">
+            <Histogram />
+            
+            {/* Exposure meter */}
+            <div className="bg-cinema-surface-elevated p-3 rounded-lg">
+              <h4 className="text-cinema-text-secondary text-xs font-medium mb-2">Exposition</h4>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-cinema-text-muted">-2</span>
+                <div className="flex-1 h-2 bg-black/20 rounded-full relative">
+                  <div className="absolute left-1/2 top-0 w-0.5 h-full bg-cinema-text-primary"></div>
+                  <div className="absolute left-1/3 top-0 w-1 h-full bg-cinema-primary rounded-full"></div>
+                </div>
+                <span className="text-xs text-cinema-text-muted">+2</span>
               </div>
-              <span className="text-xs text-cinema-text-muted">+2</span>
             </div>
-          </div>
 
-          {/* Audio levels */}
-          <div className="bg-cinema-surface-elevated p-3 rounded-lg">
-            <h4 className="text-cinema-text-secondary text-xs font-medium mb-2">Niveaux Audio</h4>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs text-cinema-text-muted w-4">L</span>
-                <div className="flex-1 h-1.5 bg-black/20 rounded-full overflow-hidden">
-                  <div className="w-3/4 h-full bg-green-500 rounded-full"></div>
+            {/* Audio levels */}
+            <div className="bg-cinema-surface-elevated p-3 rounded-lg">
+              <h4 className="text-cinema-text-secondary text-xs font-medium mb-2">Niveaux Audio</h4>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-cinema-text-muted w-4">L</span>
+                  <div className="flex-1 h-1.5 bg-black/20 rounded-full overflow-hidden">
+                    <div className="w-3/4 h-full bg-green-500 rounded-full"></div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-xs text-cinema-text-muted w-4">R</span>
-                <div className="flex-1 h-1.5 bg-black/20 rounded-full overflow-hidden">
-                  <div className="w-2/3 h-full bg-green-500 rounded-full"></div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-cinema-text-muted w-4">R</span>
+                  <div className="flex-1 h-1.5 bg-black/20 rounded-full overflow-hidden">
+                    <div className="w-2/3 h-full bg-green-500 rounded-full"></div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Zoom controls */}
         <ZoomControls onZoomChange={handleZoomChange} />

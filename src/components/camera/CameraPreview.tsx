@@ -5,9 +5,10 @@ interface CameraPreviewProps {
   isRecording: boolean;
   currentMode: 'photo' | 'video';
   zoom: number;
+  showGrid?: boolean;
 }
 
-export const CameraPreview = ({ isRecording, currentMode, zoom }: CameraPreviewProps) => {
+export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false }: CameraPreviewProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
@@ -15,25 +16,49 @@ export const CameraPreview = ({ isRecording, currentMode, zoom }: CameraPreviewP
     // Initialize camera stream
     const initCamera = async () => {
       try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
+        // Check if getUserMedia is available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          console.error('getUserMedia not supported');
+          return;
+        }
+
+        // Try with more basic constraints first
+        const constraints = {
           video: {
-            width: { ideal: 3840, min: 1920 },
-            height: { ideal: 2160, min: 1080 },
-            frameRate: { ideal: 60, min: 24 }
+            facingMode: 'environment', // Use back camera by default
+            width: { ideal: 1920, min: 640 },
+            height: { ideal: 1080, min: 480 },
+            frameRate: { ideal: 30, min: 15 }
           },
-          audio: {
-            sampleRate: { ideal: 96000, min: 48000 },
-            sampleSize: 32,
-            channelCount: 2
-          }
-        });
+          audio: true
+        };
+
+        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         
         setStream(mediaStream);
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
+          // Ensure video plays
+          videoRef.current.play().catch(e => console.log('Video play failed:', e));
         }
       } catch (err) {
         console.error('Error accessing camera:', err);
+        
+        // Fallback: try with even simpler constraints
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
+          
+          setStream(fallbackStream);
+          if (videoRef.current) {
+            videoRef.current.srcObject = fallbackStream;
+            videoRef.current.play().catch(e => console.log('Fallback video play failed:', e));
+          }
+        } catch (fallbackErr) {
+          console.error('Fallback camera access failed:', fallbackErr);
+        }
       }
     };
 
@@ -92,17 +117,34 @@ export const CameraPreview = ({ isRecording, currentMode, zoom }: CameraPreviewP
         </span>
       </div>
 
-      {/* Grid overlay */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="w-full h-full grid grid-cols-3 grid-rows-3 opacity-30">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <div
-              key={i}
-              className="border border-white/20"
-            />
-          ))}
+      {/* Composition grid overlay */}
+      {showGrid && (
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="w-full h-full grid grid-cols-3 grid-rows-3 opacity-40">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <div
+                key={i}
+                className="border border-cinema-text-primary/30"
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Level grid overlay */}
+      {showGrid && (
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Horizontal center line */}
+          <div className="absolute top-1/2 left-0 right-0 h-px bg-cinema-primary/60"></div>
+          {/* Vertical center line */}
+          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-cinema-primary/60"></div>
+          {/* Corner indicators */}
+          <div className="absolute top-4 left-4 w-6 h-6 border-l-2 border-t-2 border-cinema-primary/40"></div>
+          <div className="absolute top-4 right-4 w-6 h-6 border-r-2 border-t-2 border-cinema-primary/40"></div>
+          <div className="absolute bottom-4 left-4 w-6 h-6 border-l-2 border-b-2 border-cinema-primary/40"></div>
+          <div className="absolute bottom-4 right-4 w-6 h-6 border-r-2 border-b-2 border-cinema-primary/40"></div>
+        </div>
+      )}
     </div>
   );
 };
