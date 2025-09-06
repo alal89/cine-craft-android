@@ -6,7 +6,7 @@ import { ZoomControls } from '@/components/camera/ZoomControls';
 import { Histogram } from '@/components/camera/Histogram';
 import { StatusDisplay } from '@/components/camera/StatusDisplay';
 import { Button } from '@/components/ui/button';
-import { Settings2, Menu } from 'lucide-react';
+import { Settings2, Menu, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -68,7 +68,7 @@ const Index = () => {
         </div>
 
         {/* Top controls overlay */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-10">
+        <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-50">
           <Button
             variant="secondary"
             size="sm"
@@ -78,7 +78,7 @@ const Index = () => {
             }}
             className="bg-black/30 backdrop-blur-sm"
           >
-            <Menu className="w-4 h-4" />
+            {showControls ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </Button>
 
           <div className="flex space-x-2">
@@ -100,16 +100,22 @@ const Index = () => {
             <Button
               variant="secondary"
               size="sm"
-              className="bg-black/30 backdrop-blur-sm"
+              onClick={() => setShowControls(!showControls)}
+              title={showControls ? "Fermer les paramètres" : "Ouvrir les paramètres"}
+              className={`bg-black/30 backdrop-blur-sm ${showControls ? 'bg-cinema-primary/30' : ''}`}
             >
               <Settings2 className="w-4 h-4" />
             </Button>
           </div>
         </div>
 
+        {showControls && (
+          <button aria-label="Fermer les paramètres" className="absolute inset-0 z-30 bg-black/30" onClick={() => setShowControls(false)} />
+        )}
+
         {/* Side panel - histogram and monitoring - ONLY show when controls are open */}
         {showControls && (
-          <div className="absolute right-4 top-20 bottom-32 w-56 space-y-4 z-10 animate-slide-up">
+          <div className="absolute right-4 top-20 bottom-32 w-56 space-y-4 z-40 animate-slide-up">
             <Histogram />
             
             {/* Exposure meter */}
@@ -152,7 +158,7 @@ const Index = () => {
 
       {/* Control panel - collapsible */}
       {showControls && (
-        <div className="absolute left-4 top-20 bottom-32 w-80 animate-slide-up z-10">
+        <div className="absolute left-4 top-20 bottom-32 w-80 animate-slide-up z-40">
           <ControlPanel 
             currentMode={currentMode}
             onModeChange={setCurrentMode}

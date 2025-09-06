@@ -24,54 +24,74 @@ export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false
           return;
         }
 
-        // Start with the simplest possible constraints
-        const constraints = {
+        // Prefer back camera with sensible defaults for Android
+        const baseConstraints: MediaStreamConstraints = {
+          audio: true,
           video: {
-            facingMode: 'environment'
-          }
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 30, max: 60 },
+          },
         };
 
-        console.log('Requesting camera access with constraints:', constraints);
-        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        if (!mounted) return;
-        
-        console.log('Camera stream obtained successfully', mediaStream);
-        setStream(mediaStream);
-        
-        if (videoRef.current && mediaStream) {
-          videoRef.current.srcObject = mediaStream;
-          
-          // Wait for video to be ready
-          videoRef.current.addEventListener('loadedmetadata', () => {
-            console.log('Video metadata loaded');
-            if (videoRef.current) {
-              videoRef.current.play()
-                .then(() => console.log('Video started playing'))
-                .catch(e => console.error('Video play failed:', e));
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Camera initialization failed:', err);
-        
-        if (!mounted) return;
-        
-        // Last resort: try with any available camera
-        try {
-          console.log('Trying fallback camera access...');
-          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
-          
-          if (mounted) {
-            setStream(fallbackStream);
-            if (videoRef.current) {
-              videoRef.current.srcObject = fallbackStream;
-              videoRef.current.play().catch(e => console.log('Fallback play failed:', e));
+        const startStream = async (constraints: MediaStreamConstraints) => {
+          console.log('Requesting camera access with constraints:', constraints);
+          const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+          // cleanup any previous stream
+          if (stream) {
+            stream.getTracks().forEach(t => t.stop());
+          }
+
+          if (!mounted) return newStream;
+
+          setStream(newStream);
+          if (videoRef.current) {
+            videoRef.current.srcObject = newStream as any;
+            try {
+              await videoRef.current.play();
+              console.log('Video started playing');
+            } catch (e) {
+              console.error('Video play failed:', e);
             }
           }
-        } catch (fallbackErr) {
-          console.error('All camera access attempts failed:', fallbackErr);
+          return newStream;
+        };
+
+        const tryBackCameraByDeviceId = async () => {
+          try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videos = devices.filter(d => d.kind === 'videoinput');
+            console.log('Video input devices:', videos);
+            const back = videos.find(d => /back|rear|environment|wide/i.test(d.label));
+            if (back) {
+              return startStream({ audio: true, video: { deviceId: { exact: back.deviceId } } });
+            }
+          } catch (e) {
+            console.warn('enumerateDevices failed:', e);
+          }
+          return startStream({ audio: true, video: true });
+        };
+
+        try {
+          const s = await startStream(baseConstraints);
+
+          // If video didn't render properly, retry selecting explicit back camera
+          setTimeout(async () => {
+            if (!mounted || !videoRef.current) return;
+            const v = videoRef.current as HTMLVideoElement;
+            if (v.videoWidth === 0 || v.videoHeight === 0) {
+              console.warn('Video dimensions are 0, retrying with deviceId...');
+              await tryBackCameraByDeviceId();
+            }
+          }, 1500);
+        } catch (err) {
+          console.error('Primary camera initialization failed:', err);
+          await tryBackCameraByDeviceId();
         }
+      } catch (outerErr) {
+        console.error('Unhandled camera init error:', outerErr);
       }
     };
 
