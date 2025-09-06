@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 const Index = () => {
   const [currentMode, setCurrentMode] = useState<'photo' | 'video'>('video');
   const [isRecording, setIsRecording] = useState(false);
-  const [showControls, setShowControls] = useState(true);
+  const [showControls, setShowControls] = useState(false);
   const [zoom, setZoom] = useState(1);
   const { toast } = useToast();
 
