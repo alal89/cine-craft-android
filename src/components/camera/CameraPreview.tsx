@@ -13,51 +13,64 @@ export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false
   const [stream, setStream] = useState<MediaStream | null>(null);
 
   useEffect(() => {
-    // Initialize camera stream
+    let mounted = true;
+    
     const initCamera = async () => {
       try {
-        // Check if getUserMedia is available
+        console.log('Initializing camera...');
+        
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           console.error('getUserMedia not supported');
           return;
         }
 
-        // Try with more basic constraints first
+        // Start with the simplest possible constraints
         const constraints = {
           video: {
-            facingMode: 'environment', // Use back camera by default
-            width: { ideal: 1920, min: 640 },
-            height: { ideal: 1080, min: 480 },
-            frameRate: { ideal: 30, min: 15 }
-          },
-          audio: true
+            facingMode: 'environment'
+          }
         };
 
+        console.log('Requesting camera access with constraints:', constraints);
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         
+        if (!mounted) return;
+        
+        console.log('Camera stream obtained successfully', mediaStream);
         setStream(mediaStream);
-        if (videoRef.current) {
+        
+        if (videoRef.current && mediaStream) {
           videoRef.current.srcObject = mediaStream;
-          // Ensure video plays
-          videoRef.current.play().catch(e => console.log('Video play failed:', e));
+          
+          // Wait for video to be ready
+          videoRef.current.addEventListener('loadedmetadata', () => {
+            console.log('Video metadata loaded');
+            if (videoRef.current) {
+              videoRef.current.play()
+                .then(() => console.log('Video started playing'))
+                .catch(e => console.error('Video play failed:', e));
+            }
+          });
         }
       } catch (err) {
-        console.error('Error accessing camera:', err);
+        console.error('Camera initialization failed:', err);
         
-        // Fallback: try with even simpler constraints
+        if (!mounted) return;
+        
+        // Last resort: try with any available camera
         try {
-          const fallbackStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: false
-          });
+          console.log('Trying fallback camera access...');
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
           
-          setStream(fallbackStream);
-          if (videoRef.current) {
-            videoRef.current.srcObject = fallbackStream;
-            videoRef.current.play().catch(e => console.log('Fallback video play failed:', e));
+          if (mounted) {
+            setStream(fallbackStream);
+            if (videoRef.current) {
+              videoRef.current.srcObject = fallbackStream;
+              videoRef.current.play().catch(e => console.log('Fallback play failed:', e));
+            }
           }
         } catch (fallbackErr) {
-          console.error('Fallback camera access failed:', fallbackErr);
+          console.error('All camera access attempts failed:', fallbackErr);
         }
       }
     };
@@ -65,8 +78,13 @@ export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false
     initCamera();
 
     return () => {
+      mounted = false;
       if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+        console.log('Cleaning up camera stream');
+        stream.getTracks().forEach(track => {
+          track.stop();
+          console.log('Stopped track:', track.kind);
+        });
       }
     };
   }, []);
@@ -81,7 +99,8 @@ export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false
           playsInline
           className="w-full h-full object-cover transition-transform duration-300"
           style={{
-            transform: `scale(${zoom})`
+            transform: `scale(${zoom})`,
+            backgroundColor: 'black'
           }}
         />
       ) : (
@@ -89,6 +108,7 @@ export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false
           <div className="text-center">
             <Camera className="w-16 h-16 mx-auto mb-4 text-cinema-text-muted" />
             <p className="text-cinema-text-secondary">Initialisation de la caméra...</p>
+            <p className="text-cinema-text-muted text-sm mt-2">Vérifiez les permissions caméra</p>
           </div>
         </div>
       )}

@@ -72,7 +72,10 @@ const Index = () => {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setShowControls(!showControls)}
+            onClick={() => {
+              console.log('Menu button clicked, current showControls:', showControls);
+              setShowControls(!showControls);
+            }}
             className="bg-black/30 backdrop-blur-sm"
           >
             <Menu className="w-4 h-4" />
@@ -104,13 +107,13 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Side panel - histogram and monitoring - only show when controls are open */}
+        {/* Side panel - histogram and monitoring - ONLY show when controls are open */}
         {showControls && (
           <div className="absolute right-4 top-20 bottom-32 w-56 space-y-4 z-10 animate-slide-up">
             <Histogram />
             
             {/* Exposure meter */}
-            <div className="bg-cinema-surface-elevated p-3 rounded-lg">
+            <div className="bg-cinema-surface-elevated/90 backdrop-blur-sm p-3 rounded-lg border border-cinema-primary/20">
               <h4 className="text-cinema-text-secondary text-xs font-medium mb-2">Exposition</h4>
               <div className="flex items-center space-x-2">
                 <span className="text-xs text-cinema-text-muted">-2</span>
@@ -123,19 +126,19 @@ const Index = () => {
             </div>
 
             {/* Audio levels */}
-            <div className="bg-cinema-surface-elevated p-3 rounded-lg">
+            <div className="bg-cinema-surface-elevated/90 backdrop-blur-sm p-3 rounded-lg border border-cinema-primary/20">
               <h4 className="text-cinema-text-secondary text-xs font-medium mb-2">Niveaux Audio</h4>
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <span className="text-xs text-cinema-text-muted w-4">L</span>
                   <div className="flex-1 h-1.5 bg-black/20 rounded-full overflow-hidden">
-                    <div className="w-3/4 h-full bg-green-500 rounded-full"></div>
+                    <div className="w-3/4 h-full bg-green-500 rounded-full animate-pulse"></div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className="text-xs text-cinema-text-muted w-4">R</span>
                   <div className="flex-1 h-1.5 bg-black/20 rounded-full overflow-hidden">
-                    <div className="w-2/3 h-full bg-green-500 rounded-full"></div>
+                    <div className="w-2/3 h-full bg-green-500 rounded-full animate-pulse"></div>
                   </div>
                 </div>
               </div>
