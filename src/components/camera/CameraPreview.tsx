@@ -1,24 +1,139 @@
 import { useState, useRef, useEffect } from 'react';
 import { Camera } from 'lucide-react';
 
+interface CameraAPI {
+  capturePhoto: () => Promise<Blob>;
+  getBackDevices: () => Promise<MediaDeviceInfo[]>;
+  switchToDevice: (deviceId: string) => Promise<void>;
+  cycleBackCamera: () => Promise<void>;
+  applyZoom: (value: number) => Promise<void>;
+}
+
 interface CameraPreviewProps {
   isRecording: boolean;
   currentMode: 'photo' | 'video';
   zoom: number;
   showGrid?: boolean;
+  onReady?: (api: CameraAPI) => void;
 }
 
-export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false }: CameraPreviewProps) => {
+export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false, onReady }: CameraPreviewProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
+  const backDevicesRef = useRef<MediaDeviceInfo[]>([]);
+
+  const enumerateBackVideoDevices = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videos = devices.filter(d => d.kind === 'videoinput');
+      console.log('Video input devices:', videos);
+      // Prefer rear/back/environment and known lens keywords
+      const backs = videos.filter(d => /back|rear|environment|tele|wide|ultra|main/i.test(d.label));
+      backDevicesRef.current = backs.length ? backs : videos; // fallback to any video inputs
+      return backDevicesRef.current;
+    } catch (e) {
+      console.warn('enumerateDevices failed:', e);
+      backDevicesRef.current = [];
+      return [];
+    }
+  };
+
+  const startStream = async (constraints: MediaStreamConstraints) => {
+    console.log('Requesting camera access with constraints:', constraints);
+    const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    // cleanup any previous stream
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+    }
+
+    setStream(newStream);
+    if (videoRef.current) {
+      (videoRef.current as HTMLVideoElement).srcObject = newStream as any;
+      try {
+        await (videoRef.current as HTMLVideoElement).play();
+        console.log('Video started playing');
+      } catch (e) {
+        console.error('Video play failed:', e);
+      }
+    }
+    return newStream;
+  };
+
+  const switchToDevice = async (deviceId: string) => {
+    try {
+      await startStream({
+        audio: currentMode === 'video',
+        video: { deviceId: { exact: deviceId } }
+      });
+      setCurrentDeviceId(deviceId);
+    } catch (e) {
+      console.error('Failed to switch device', e);
+    }
+  };
+
+  const cycleBackCamera = async () => {
+    const backs = backDevicesRef.current.length ? backDevicesRef.current : await enumerateBackVideoDevices();
+    if (!backs.length) return;
+    const idx = Math.max(0, backs.findIndex(d => d.deviceId === currentDeviceId));
+    const next = backs[(idx + 1) % backs.length];
+    console.log('Switching to camera:', next?.label || next.deviceId);
+    await switchToDevice(next.deviceId);
+  };
+
+  const applyZoom = async (value: number) => {
+    try {
+      const track = stream?.getVideoTracks?.()[0];
+      // Use native camera zoom if available
+      const caps: any = (track as any)?.getCapabilities?.();
+      if (caps && 'zoom' in caps) {
+        await (track as any).applyConstraints({ advanced: [{ zoom: value }] });
+        console.log('Applied native zoom:', value);
+      }
+    } catch (e) {
+      console.warn('Native zoom not applied:', e);
+    }
+  };
+
+  const capturePhoto = async (): Promise<Blob> => {
+    const video = videoRef.current as HTMLVideoElement | null;
+    if (!video) throw new Error('Video element not ready');
+
+    // Try ImageCapture API for best quality
+    try {
+      const track = stream?.getVideoTracks?.()[0];
+      const ImageCaptureCtor: any = (window as any).ImageCapture;
+      if (ImageCaptureCtor && track) {
+        const ic = new ImageCaptureCtor(track);
+        const blob: Blob = await ic.takePhoto();
+        if (blob) return blob;
+      }
+    } catch (e) {
+      console.warn('ImageCapture failed, falling back to canvas:', e);
+    }
+
+    // Canvas fallback
+    const canvas = document.createElement('canvas');
+    const w = video.videoWidth || 1920;
+    const h = video.videoHeight || 1080;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas context not available');
+    ctx.drawImage(video, 0, 0, w, h);
+    const blob: Blob | null = await new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/jpeg', 0.92));
+    if (!blob) throw new Error('Canvas toBlob failed');
+    return blob;
+  };
 
   useEffect(() => {
     let mounted = true;
-    
+
     const initCamera = async () => {
       try {
         console.log('Initializing camera...');
-        
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           console.error('getUserMedia not supported');
           return;
@@ -26,7 +141,7 @@ export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false
 
         // Prefer back camera with sensible defaults for Android
         const baseConstraints: MediaStreamConstraints = {
-          audio: true,
+          audio: currentMode === 'video',
           video: {
             facingMode: { ideal: 'environment' },
             width: { ideal: 1920 },
@@ -35,47 +150,27 @@ export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false
           },
         };
 
-        const startStream = async (constraints: MediaStreamConstraints) => {
-          console.log('Requesting camera access with constraints:', constraints);
-          const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-          // cleanup any previous stream
-          if (stream) {
-            stream.getTracks().forEach(t => t.stop());
-          }
-
-          if (!mounted) return newStream;
-
-          setStream(newStream);
-          if (videoRef.current) {
-            videoRef.current.srcObject = newStream as any;
-            try {
-              await videoRef.current.play();
-              console.log('Video started playing');
-            } catch (e) {
-              console.error('Video play failed:', e);
-            }
-          }
-          return newStream;
-        };
-
         const tryBackCameraByDeviceId = async () => {
           try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videos = devices.filter(d => d.kind === 'videoinput');
-            console.log('Video input devices:', videos);
-            const back = videos.find(d => /back|rear|environment|wide/i.test(d.label));
+            const backs = await enumerateBackVideoDevices();
+            const back = backs[0];
             if (back) {
-              return startStream({ audio: true, video: { deviceId: { exact: back.deviceId } } });
+              return await switchToDevice(back.deviceId);
             }
           } catch (e) {
             console.warn('enumerateDevices failed:', e);
           }
-          return startStream({ audio: true, video: true });
+          return await startStream({ audio: currentMode === 'video', video: true });
         };
 
         try {
           const s = await startStream(baseConstraints);
+          // save current deviceId if possible
+          try {
+            const track = s.getVideoTracks?.()[0];
+            const settings = track?.getSettings?.();
+            if (settings?.deviceId) setCurrentDeviceId(settings.deviceId);
+          } catch {}
 
           // If video didn't render properly, retry selecting explicit back camera
           setTimeout(async () => {
@@ -96,6 +191,9 @@ export const CameraPreview = ({ isRecording, currentMode, zoom, showGrid = false
     };
 
     initCamera();
+
+    // Expose API to parent
+    onReady?.({ capturePhoto, getBackDevices: enumerateBackVideoDevices, switchToDevice, cycleBackCamera, applyZoom });
 
     return () => {
       mounted = false;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { CameraPreview } from '@/components/camera/CameraPreview';
 import { ControlPanel } from '@/components/camera/ControlPanel';
 import { CaptureControls } from '@/components/camera/CaptureControls';
@@ -16,14 +16,29 @@ const Index = () => {
   const [showGrid, setShowGrid] = useState(false);
   const [zoom, setZoom] = useState(1);
   const { toast } = useToast();
+  const cameraApiRef = useRef<any>(null);
 
-  const handleCapture = () => {
-    toast({
-      title: "Photo capturée",
-      description: "Image sauvegardée en format RAW",
-    });
+  const handleCapture = async () => {
+    try {
+      if (currentMode !== 'photo') return;
+      const api = cameraApiRef.current;
+      if (!api?.capturePhoto) throw new Error('Camera API non disponible');
+      const blob: Blob = await api.capturePhoto();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      a.href = url;
+      a.download = `photo-${ts}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: 'Photo capturée', description: 'Image sauvegardée en JPEG' });
+    } catch (e: any) {
+      console.error('Erreur capture photo:', e);
+      toast({ title: 'Échec de la capture', description: e?.message || 'Réessayez', variant: 'destructive' as any });
+    }
   };
-
   const handleStartRecording = () => {
     setIsRecording(true);
     toast({
@@ -40,17 +55,19 @@ const Index = () => {
     });
   };
 
-  const handleSwitchCamera = () => {
-    toast({
-      title: "Basculement caméra",
-      description: "Passage à la caméra arrière",
-    });
+  const handleSwitchCamera = async () => {
+    try {
+      await cameraApiRef.current?.cycleBackCamera?.();
+      toast({ title: 'Objectif changé', description: "Basculement entre les objectifs arrière" });
+    } catch (e: any) {
+      console.error('Switch camera error:', e);
+      toast({ title: 'Échec du basculement', description: e?.message || 'Réessayez', variant: 'destructive' as any });
+    }
   };
-
   const handleZoomChange = (newZoom: number) => {
     setZoom(newZoom);
+    cameraApiRef.current?.applyZoom?.(newZoom);
   };
-
   return (
     <div className="min-h-screen bg-cinema-background flex flex-col relative overflow-hidden">
       {/* Status bar */}
@@ -64,6 +81,7 @@ const Index = () => {
             currentMode={currentMode} 
             zoom={zoom}
             showGrid={showGrid}
+            onReady={(api) => { cameraApiRef.current = api; }}
           />
         </div>
 
