@@ -1,13 +1,17 @@
-import { useState, useRef } from 'react';
-import { CameraPreview } from '@/components/camera/CameraPreview';
+import { useState, useEffect } from 'react';
+// CameraPreview functionality now integrated directly
 import { ControlPanel } from '@/components/camera/ControlPanel';
 import { CaptureControls } from '@/components/camera/CaptureControls';
 import { ZoomControls } from '@/components/camera/ZoomControls';
 import { Histogram } from '@/components/camera/Histogram';
 import { StatusDisplay } from '@/components/camera/StatusDisplay';
+import { LensSelector } from '@/components/camera/LensSelector';
+import { StorageSelector } from '@/components/camera/StorageSelector';
 import { Button } from '@/components/ui/button';
 import { Settings2, Menu, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useCamera } from '@/hooks/useCamera';
+import { useStorage } from '@/hooks/useStorage';
 
 const Index = () => {
   const [currentMode, setCurrentMode] = useState<'photo' | 'video'>('video');
@@ -16,57 +20,116 @@ const Index = () => {
   const [showGrid, setShowGrid] = useState(false);
   const [zoom, setZoom] = useState(1);
   const { toast } = useToast();
-  const cameraApiRef = useRef<any>(null);
+  
+  // New hooks for advanced camera and storage management
+  const camera = useCamera();
+  const storage = useStorage();
+
+  // Initialize camera on mount
+  useEffect(() => {
+    const initCamera = async () => {
+      try {
+        await camera.initialize();
+        toast({
+          title: "Caméra initialisée",
+          description: `${camera.devices.length} objectifs détectés`,
+        });
+      } catch (error: any) {
+        console.error('Camera init failed:', error);
+        toast({
+          title: "Erreur caméra",
+          description: error.message || "Impossible d'initialiser la caméra",
+          variant: "destructive" as any,
+        });
+      }
+    };
+    
+    initCamera();
+  }, []);
 
   const handleCapture = async () => {
     try {
       if (currentMode !== 'photo') return;
-      const api = cameraApiRef.current;
-      if (!api?.capturePhoto) throw new Error('Camera API non disponible');
-      const blob: Blob = await api.capturePhoto();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      a.href = url;
-      a.download = `photo-${ts}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toast({ title: 'Photo capturée', description: 'Image sauvegardée en JPEG' });
-    } catch (e: any) {
-      console.error('Erreur capture photo:', e);
-      toast({ title: 'Échec de la capture', description: e?.message || 'Réessayez', variant: 'destructive' as any });
+      
+      const blob = await camera.capturePhoto();
+      await storage.savePhoto(blob);
+      
+      toast({
+        title: "Photo capturée",
+        description: `Sauvegardée dans ${storage.selectedLocation.name}`,
+      });
+    } catch (error: any) {
+      console.error('Photo capture failed:', error);
+      toast({
+        title: "Échec de la capture",
+        description: error?.message || 'Réessayez',
+        variant: "destructive" as any,
+      });
     }
   };
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    toast({
-      title: "Enregistrement démarré",
-      description: "Vidéo 4K 60fps en cours...",
-    });
+  const handleStartRecording = async () => {
+    try {
+      setIsRecording(true);
+      await camera.startVideoRecording();
+      toast({
+        title: "Enregistrement démarré",
+        description: "Vidéo en cours...",
+      });
+    } catch (error: any) {
+      setIsRecording(false);
+      toast({
+        title: "Erreur d'enregistrement",
+        description: error?.message || 'Réessayez',
+        variant: "destructive" as any,
+      });
+    }
   };
 
-  const handleStopRecording = () => {
-    setIsRecording(false);
-    toast({
-      title: "Enregistrement terminé",
-      description: "Vidéo sauvegardée avec succès",
-    });
+  const handleStopRecording = async () => {
+    try {
+      const blob = await camera.stopVideoRecording();
+      setIsRecording(false);
+      await storage.saveVideo(blob);
+      
+      toast({
+        title: "Enregistrement terminé",
+        description: `Sauvegardée dans ${storage.selectedLocation.name}`,
+      });
+    } catch (error: any) {
+      setIsRecording(false);
+      toast({
+        title: "Erreur de sauvegarde",
+        description: error?.message || 'Réessayez',
+        variant: "destructive" as any,
+      });
+    }
   };
 
   const handleSwitchCamera = async () => {
     try {
-      await cameraApiRef.current?.cycleBackCamera?.();
-      toast({ title: 'Objectif changé', description: "Basculement entre les objectifs arrière" });
-    } catch (e: any) {
-      console.error('Switch camera error:', e);
-      toast({ title: 'Échec du basculement', description: e?.message || 'Réessayez', variant: 'destructive' as any });
+      // Cycle through available lenses automatically
+      const currentType = camera.currentDevice?.type || 'main';
+      const lensOrder: Array<'main' | 'ultrawide' | 'telephoto'> = ['main', 'ultrawide', 'telephoto'];
+      const currentIndex = lensOrder.indexOf(currentType);
+      const nextType = lensOrder[(currentIndex + 1) % lensOrder.length];
+      
+      await camera.switchToLens(nextType);
+      toast({
+        title: "Objectif changé",
+        description: `Basculé vers ${nextType === 'main' ? 'Principal' : nextType === 'ultrawide' ? 'Ultra Grand-Angle' : 'Téléobjectif'}`,
+      });
+    } catch (error: any) {
+      console.error('Switch camera error:', error);
+      toast({
+        title: "Échec du basculement",
+        description: error?.message || 'Objectif non disponible',
+        variant: "destructive" as any,
+      });
     }
   };
-  const handleZoomChange = (newZoom: number) => {
+  const handleZoomChange = async (newZoom: number) => {
     setZoom(newZoom);
-    cameraApiRef.current?.applyZoom?.(newZoom);
+    await camera.applyZoom(newZoom);
   };
   return (
     <div className="min-h-screen bg-cinema-background flex flex-col relative overflow-hidden">
@@ -76,13 +139,84 @@ const Index = () => {
       {/* Main camera view */}
       <div className="flex-1 relative">
         <div className="absolute inset-0">
-          <CameraPreview 
-            isRecording={isRecording} 
-            currentMode={currentMode} 
-            zoom={zoom}
-            showGrid={showGrid}
-            onReady={(api) => { cameraApiRef.current = api; }}
-          />
+          <div className="w-full h-full bg-black overflow-hidden rounded-lg relative">
+            {camera.stream ? (
+              <video
+                ref={camera.videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full object-cover transition-transform duration-300"
+                style={{
+                  transform: `scale(${zoom})`,
+                  backgroundColor: 'black'
+                }}
+              />
+            ) : (
+              <div className="w-full h-full bg-cinema-surface flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-cinema-primary/20 flex items-center justify-center">
+                    <span className="text-2xl">📸</span>
+                  </div>
+                  <p className="text-cinema-text-secondary">Initialisation de la caméra...</p>
+                  <p className="text-cinema-text-muted text-sm mt-2">Vérifiez les permissions caméra</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Recording border indicator */}
+            {isRecording && (
+              <div className="absolute inset-0 border-4 border-red-500 pointer-events-none animate-pulse-glow rounded-lg">
+                <div className="absolute inset-0 border-2 border-red-400/60 rounded-lg">
+                  <div className="absolute inset-0 border border-red-300/40 rounded-lg"></div>
+                </div>
+              </div>
+            )}
+
+            {/* Recording indicator */}
+            {isRecording && (
+              <div className="absolute top-4 left-4 flex items-center space-x-2 animate-pulse-glow">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <span className="text-white text-sm font-medium">REC</span>
+              </div>
+            )}
+
+            {/* Mode indicator */}
+            <div className="absolute top-4 right-4 bg-black/50 px-3 py-1 rounded-full">
+              <span className="text-white text-sm font-medium uppercase">
+                {currentMode}
+              </span>
+            </div>
+
+            {/* Composition grid overlay */}
+            {showGrid && (
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="w-full h-full grid grid-cols-3 grid-rows-3 opacity-40">
+                  {Array.from({ length: 9 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="border border-cinema-text-primary/30"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Level grid overlay */}
+            {showGrid && (
+              <div className="absolute inset-0 pointer-events-none">
+                {/* Horizontal center line */}
+                <div className="absolute top-1/2 left-0 right-0 h-px bg-cinema-primary/60"></div>
+                {/* Vertical center line */}
+                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-cinema-primary/60"></div>
+                {/* Corner indicators */}
+                <div className="absolute top-4 left-4 w-6 h-6 border-l-2 border-t-2 border-cinema-primary/40"></div>
+                <div className="absolute top-4 right-4 w-6 h-6 border-r-2 border-t-2 border-cinema-primary/40"></div>
+                <div className="absolute bottom-4 left-4 w-6 h-6 border-l-2 border-b-2 border-cinema-primary/40"></div>
+                <div className="absolute bottom-4 right-4 w-6 h-6 border-r-2 border-b-2 border-cinema-primary/40"></div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Top controls overlay */}
@@ -131,9 +265,17 @@ const Index = () => {
           <button aria-label="Fermer les paramètres" className="absolute inset-0 z-30 bg-black/30" onClick={() => setShowControls(false)} />
         )}
 
-        {/* Side panel - histogram and monitoring - ONLY show when controls are open */}
+        {/* Side panel - lens selector, histogram and monitoring - ONLY show when controls are open */}
         {showControls && (
           <div className="absolute right-4 top-20 bottom-32 w-56 space-y-4 z-40 animate-slide-up">
+            {/* Lens Selector */}
+            <LensSelector
+              devices={camera.devices}
+              currentDevice={camera.currentDevice}
+              onLensChange={camera.switchToLens}
+              disabled={isRecording}
+            />
+            
             <Histogram />
             
             {/* Exposure meter */}
@@ -176,11 +318,20 @@ const Index = () => {
 
       {/* Control panel - collapsible */}
       {showControls && (
-        <div className="absolute left-4 top-20 bottom-32 w-80 animate-slide-up z-40">
+        <div className="absolute left-4 top-20 bottom-32 w-80 animate-slide-up z-40 space-y-4">
           <ControlPanel 
             currentMode={currentMode}
             onModeChange={setCurrentMode}
           />
+          
+          {/* Storage Selector */}
+          <div className="bg-cinema-surface p-4 rounded-lg">
+            <StorageSelector
+              locations={storage.locations}
+              selectedLocation={storage.selectedLocation}
+              onLocationChange={storage.setSelectedLocation}
+            />
+          </div>
         </div>
       )}
 
