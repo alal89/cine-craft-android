@@ -29,16 +29,21 @@ const Index = () => {
   useEffect(() => {
     const initCamera = async () => {
       try {
+        console.log('Initializing camera from Index component...');
         await camera.initialize();
-        toast({
-          title: "Caméra initialisée",
-          description: `${camera.devices.length} objectifs détectés`,
-        });
+        
+        // Wait a bit for devices to be set
+        setTimeout(() => {
+          toast({
+            title: "Caméra initialisée",
+            description: `${camera.devices.length} objectif(s) détecté(s)`,
+          });
+        }, 100);
       } catch (error: any) {
         console.error('Camera init failed:', error);
         toast({
           title: "Erreur caméra",
-          description: error.message || "Impossible d'initialiser la caméra",
+          description: error.message || "Impossible d'initialiser la caméra. Vérifiez les permissions.",
           variant: "destructive" as any,
         });
       }

@@ -104,12 +104,25 @@ export const useCamera = () => {
 
   const enumerateDevices = useCallback(async (): Promise<CameraDevice[]> => {
     try {
-      // Request camera permissions first
-      await navigator.mediaDevices.getUserMedia({ video: true });
+      // First request basic permissions and stop the stream immediately
+      const tempStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      console.log('Got temp stream for permissions');
       
+      // Stop the temp stream to free up resources
+      tempStream.getTracks().forEach(track => track.stop());
+      
+      // Now enumerate devices (should have labels after permission)
       const allDevices = await navigator.mediaDevices.enumerateDevices();
-      console.log('All devices found:', allDevices);
-      console.log('Video input devices:', allDevices.filter(d => d.kind === 'videoinput'));
+      console.log('All devices found:', allDevices.map(d => ({ kind: d.kind, label: d.label, deviceId: d.deviceId })));
+      
+      const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
+      console.log('Video input devices:', videoDevices);
+      
+      if (videoDevices.length === 0) {
+        throw new Error('Aucun périphérique vidéo détecté');
+      }
       
       const cameraDevices = detectOnePlusLenses(allDevices);
       console.log('Detected camera devices:', cameraDevices);
@@ -118,7 +131,7 @@ export const useCamera = () => {
       return cameraDevices;
     } catch (error) {
       console.error('Failed to enumerate devices:', error);
-      return [];
+      throw error;
     }
   }, []);
 
@@ -265,12 +278,23 @@ export const useCamera = () => {
 
   const initialize = useCallback(async (): Promise<void> => {
     try {
+      console.log('Starting camera initialization...');
       const detectedDevices = await enumerateDevices();
+      console.log('Enumerated devices:', detectedDevices);
       
-      // Auto-select main camera
+      if (detectedDevices.length === 0) {
+        throw new Error('Aucun objectif détecté. Vérifiez les permissions caméra.');
+      }
+      
+      // Auto-select main camera or first available
       const mainCamera = detectedDevices.find(d => d.type === 'main') || detectedDevices[0];
+      console.log('Selected camera:', mainCamera);
+      
       if (mainCamera) {
         await switchToDevice(mainCamera.deviceId);
+        console.log('Camera initialization completed successfully');
+      } else {
+        throw new Error('Impossible de sélectionner un objectif');
       }
     } catch (error) {
       console.error('Camera initialization failed:', error);
