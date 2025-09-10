@@ -239,6 +239,31 @@ const Index = () => {
           </Button>
 
           <div className="flex space-x-2">
+            {/* Flash toggle */}
+            <Button
+              variant="secondary" 
+              size="sm"
+              onClick={async () => {
+                try {
+                  await camera.toggleFlash();
+                  toast({
+                    title: camera.flashEnabled ? "Flash activé" : "Flash désactivé",
+                    description: camera.flashEnabled ? "Flash allumé" : "Flash éteint"
+                  });
+                } catch (error: any) {
+                  toast({
+                    title: "Erreur flash",
+                    description: error.message,
+                    variant: "destructive" as any
+                  });
+                }
+              }}
+              className={`bg-black/30 backdrop-blur-sm ${camera.flashEnabled ? 'bg-yellow-500/30' : ''}`}
+              title="Flash"
+            >
+              ⚡
+            </Button>
+            
             <Button
               variant="secondary"
               size="sm"

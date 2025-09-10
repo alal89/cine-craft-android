@@ -18,6 +18,7 @@ export interface CameraAPI {
   startVideoRecording: () => Promise<void>;
   stopVideoRecording: () => Promise<Blob>;
   applyZoom: (value: number) => Promise<void>;
+  toggleFlash: () => Promise<void>;
 }
 
 export const useCamera = () => {
@@ -25,6 +26,7 @@ export const useCamera = () => {
   const [currentDevice, setCurrentDevice] = useState<CameraDevice | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [flashEnabled, setFlashEnabled] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -44,51 +46,62 @@ export const useCamera = () => {
     const videoDevices = devices.filter(d => d.kind === 'videoinput');
     console.log('Video devices:', videoDevices.map(d => ({ label: d.label, deviceId: d.deviceId })));
     
-    // If no specific back camera labels, use all video devices
+    // Filter for back cameras only
     let backCameras = videoDevices.filter(d => 
-      /back|rear|environment|camera/i.test(d.label) && 
-      !/front|selfie|user/i.test(d.label)
+      /back|rear|environment|facing back/i.test(d.label) && 
+      !/front|selfie|user|facing front/i.test(d.label)
     );
     
-    // Fallback: if no back cameras detected, use all video devices
+    // Fallback: if no back cameras detected, use all video devices except front
     if (backCameras.length === 0) {
-      console.log('No back cameras detected, using all video devices');
-      backCameras = videoDevices;
+      console.log('No back cameras detected, using all non-front video devices');
+      backCameras = videoDevices.filter(d => !/front|selfie|user|facing front/i.test(d.label));
     }
 
     return backCameras.map((device, index) => {
-      // If we have multiple cameras, try to identify them properly
-      // Otherwise, assign them based on index
+      // OnePlus 11 specific detection based on labels
       let type: 'main' | 'ultrawide' | 'telephoto';
+      let megapixels: number;
+      let aperture: string;
+      let features: string[];
       
-      if (backCameras.length >= 3) {
-        type = identifyLensType(device.label);
+      // OnePlus 11 camera mapping based on device labels
+      if (device.label.includes('back:0')) {
+        // Main camera - 50MP Sony IMX890
+        type = 'main';
+        megapixels = 50;
+        aperture = 'f/1.8';
+        features = ['OIS', 'EIS', 'Sony IMX890'];
+      } else if (device.label.includes('back:2')) {
+        // Ultra-wide camera - 48MP Sony IMX581  
+        type = 'ultrawide';
+        megapixels = 48;
+        aperture = 'f/2.2';
+        features = ['115° FOV', 'Macro', 'Sony IMX581'];
+      } else if (device.label.includes('back:3')) {
+        // Telephoto camera - 32MP Sony IMX709
+        type = 'telephoto';
+        megapixels = 32;
+        aperture = 'f/2.0';
+        features = ['2x Zoom', 'Portrait', 'Sony IMX709'];
       } else {
-        // Fallback assignment for devices without clear labels
-        type = index === 0 ? 'main' : index === 1 ? 'ultrawide' : 'telephoto';
-      }
-      
-      let megapixels: number | undefined;
-      let aperture: string | undefined;
-      let features: string[] = [];
-
-      // OnePlus 11 specific camera specs
-      switch (type) {
-        case 'main':
+        // Fallback assignment for unknown cameras
+        if (index === 0) {
+          type = 'main';
           megapixels = 50;
           aperture = 'f/1.8';
           features = ['OIS', 'EIS', 'Sony IMX890'];
-          break;
-        case 'ultrawide':
+        } else if (index === 1) {
+          type = 'ultrawide';
           megapixels = 48;
           aperture = 'f/2.2';
           features = ['115° FOV', 'Macro', 'Sony IMX581'];
-          break;
-        case 'telephoto':
+        } else {
+          type = 'telephoto';
           megapixels = 32;
           aperture = 'f/2.0';
           features = ['2x Zoom', 'Portrait', 'Sony IMX709'];
-          break;
+        }
       }
 
       return {
@@ -158,26 +171,32 @@ export const useCamera = () => {
 
   const switchToDevice = useCallback(async (deviceId: string): Promise<void> => {
     try {
+      console.log('Switching to device:', deviceId);
+      console.log('Available devices:', devices.map(d => ({ id: d.deviceId, label: d.label, type: d.type })));
+      
       const device = devices.find(d => d.deviceId === deviceId);
-      if (!device) throw new Error('Device not found');
+      if (!device) {
+        console.error('Device not found in available devices');
+        throw new Error(`Device ${deviceId} not found in available devices`);
+      }
 
       const constraints: MediaStreamConstraints = {
         video: { 
           deviceId: { exact: deviceId },
           width: { ideal: 1920 },
           height: { ideal: 1080 }
-        },
+        } as MediaTrackConstraints,
         audio: true
       };
 
       await startStream(constraints);
       setCurrentDevice(device);
-      console.log(`Switched to ${device.type} lens:`, device.label);
+      console.log(`Successfully switched to ${device.type} lens:`, device.label);
     } catch (error) {
       console.error('Failed to switch device:', error);
       throw error;
     }
-  }, [devices, startStream]);
+  }, [devices, startStream, flashEnabled]);
 
   const switchToLens = useCallback(async (type: 'main' | 'ultrawide' | 'telephoto'): Promise<void> => {
     const device = devices.find(d => d.type === type);
@@ -276,6 +295,29 @@ export const useCamera = () => {
     }
   }, [stream]);
 
+  const toggleFlash = useCallback(async (): Promise<void> => {
+    try {
+      const track = stream?.getVideoTracks()[0];
+      if (!track) throw new Error('Aucun flux vidéo disponible');
+      
+      const capabilities = track.getCapabilities?.() as any;
+      
+      if (capabilities && capabilities.torch) {
+        const newFlashState = !flashEnabled;
+        await track.applyConstraints({
+          advanced: [{ torch: newFlashState }] as any
+        });
+        setFlashEnabled(newFlashState);
+        console.log('Flash toggled:', newFlashState);
+      } else {
+        throw new Error('Flash non supporté sur cet appareil');
+      }
+    } catch (e) {
+      console.warn('Flash not supported:', e);
+      throw e;
+    }
+  }, [stream, flashEnabled]);
+
   const initialize = useCallback(async (): Promise<void> => {
     try {
       console.log('Starting camera initialization...');
@@ -307,6 +349,7 @@ export const useCamera = () => {
     currentDevice,
     stream,
     isRecording,
+    flashEnabled,
     videoRef,
     initialize,
     switchToDevice,
@@ -315,6 +358,7 @@ export const useCamera = () => {
     startVideoRecording,
     stopVideoRecording,
     applyZoom,
+    toggleFlash,
     enumerateDevices
   };
 };
