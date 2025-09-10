@@ -172,16 +172,17 @@ export const useCamera = () => {
   const switchToDevice = useCallback(async (deviceId: string): Promise<void> => {
     try {
       console.log('Switching to device:', deviceId);
-      console.log('Available devices:', devices.map(d => ({ id: d.deviceId, label: d.label, type: d.type })));
-      
-      const device = devices.find(d => d.deviceId === deviceId);
+      console.log('Available devices (state):', devices.map(d => ({ id: d.deviceId, label: d.label, type: d.type })));
+
+      // Try to find device in state, but don't fail if not yet populated
+      let device = devices.find(d => d.deviceId === deviceId) || null;
       if (!device) {
-        console.error('Device not found in available devices');
-        throw new Error(`Device ${deviceId} not found in available devices`);
+        console.warn('Device not found in state list, creating fallback camera meta');
+        device = { deviceId, label: 'Caméra', type: 'main' } as CameraDevice;
       }
 
       const constraints: MediaStreamConstraints = {
-        video: { 
+        video: {
           deviceId: { exact: deviceId },
           width: { ideal: 1920 },
           height: { ideal: 1080 }
@@ -196,7 +197,7 @@ export const useCamera = () => {
       console.error('Failed to switch device:', error);
       throw error;
     }
-  }, [devices, startStream, flashEnabled]);
+  }, [devices, startStream]);
 
   const switchToLens = useCallback(async (type: 'main' | 'ultrawide' | 'telephoto'): Promise<void> => {
     const device = devices.find(d => d.type === type);
