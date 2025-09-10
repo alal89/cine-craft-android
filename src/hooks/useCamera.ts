@@ -42,13 +42,32 @@ export const useCamera = () => {
 
   const detectOnePlusLenses = (devices: MediaDeviceInfo[]): CameraDevice[] => {
     const videoDevices = devices.filter(d => d.kind === 'videoinput');
-    const backCameras = videoDevices.filter(d => 
+    console.log('Video devices:', videoDevices.map(d => ({ label: d.label, deviceId: d.deviceId })));
+    
+    // If no specific back camera labels, use all video devices
+    let backCameras = videoDevices.filter(d => 
       /back|rear|environment|camera/i.test(d.label) && 
       !/front|selfie|user/i.test(d.label)
     );
+    
+    // Fallback: if no back cameras detected, use all video devices
+    if (backCameras.length === 0) {
+      console.log('No back cameras detected, using all video devices');
+      backCameras = videoDevices;
+    }
 
-    return backCameras.map(device => {
-      const type = identifyLensType(device.label);
+    return backCameras.map((device, index) => {
+      // If we have multiple cameras, try to identify them properly
+      // Otherwise, assign them based on index
+      let type: 'main' | 'ultrawide' | 'telephoto';
+      
+      if (backCameras.length >= 3) {
+        type = identifyLensType(device.label);
+      } else {
+        // Fallback assignment for devices without clear labels
+        type = index === 0 ? 'main' : index === 1 ? 'ultrawide' : 'telephoto';
+      }
+      
       let megapixels: number | undefined;
       let aperture: string | undefined;
       let features: string[] = [];
@@ -85,8 +104,16 @@ export const useCamera = () => {
 
   const enumerateDevices = useCallback(async (): Promise<CameraDevice[]> => {
     try {
+      // Request camera permissions first
+      await navigator.mediaDevices.getUserMedia({ video: true });
+      
       const allDevices = await navigator.mediaDevices.enumerateDevices();
+      console.log('All devices found:', allDevices);
+      console.log('Video input devices:', allDevices.filter(d => d.kind === 'videoinput'));
+      
       const cameraDevices = detectOnePlusLenses(allDevices);
+      console.log('Detected camera devices:', cameraDevices);
+      
       setDevices(cameraDevices);
       return cameraDevices;
     } catch (error) {
