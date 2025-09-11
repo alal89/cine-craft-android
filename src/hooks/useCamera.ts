@@ -247,9 +247,18 @@ export const useCamera = () => {
     if (!stream) throw new Error('Camera not ready');
 
     recordedChunksRef.current = [];
-    const mediaRecorder = new MediaRecorder(stream, {
-      mimeType: 'video/webm;codecs=vp9'
-    });
+    
+    // Try multiple codec options for better compatibility
+    let mimeType = 'video/webm;codecs=vp8';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = 'video/webm';
+    }
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = 'video/mp4';
+    }
+    
+    console.log('Using MIME type for recording:', mimeType);
+    const mediaRecorder = new MediaRecorder(stream, { mimeType });
 
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
