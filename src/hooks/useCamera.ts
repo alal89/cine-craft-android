@@ -27,6 +27,8 @@ export const useCamera = () => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [flashEnabled, setFlashEnabled] = useState(false);
+  const [videoCodec, setVideoCodec] = useState<string>('video/mp4;codecs=h264');
+  const [frameRate, setFrameRate] = useState<number>(30);
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -185,7 +187,8 @@ export const useCamera = () => {
         video: {
           deviceId: { exact: deviceId },
           width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          height: { ideal: 1080 },
+          frameRate: { ideal: frameRate }
         } as MediaTrackConstraints,
         audio: true
       };
@@ -248,10 +251,11 @@ export const useCamera = () => {
 
     recordedChunksRef.current = [];
 
-    // Pick the best supported codec/container
-    const candidates = [
+    // Pick the best supported codec/container based on user preference
+    const codecPreferences = [videoCodec];
+    const fallbackCandidates = [
       'video/mp4;codecs=h264',
-      'video/mp4;codecs=avc1',
+      'video/mp4;codecs=avc1', 
       'video/mp4',
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
@@ -259,6 +263,8 @@ export const useCamera = () => {
       'video/webm;codecs=vp8',
       'video/webm'
     ];
+    
+    const candidates = [...codecPreferences, ...fallbackCandidates];
 
     let chosen: string | undefined = undefined;
     for (const c of candidates) {
@@ -343,6 +349,7 @@ export const useCamera = () => {
         setFlashEnabled(newFlashState);
         console.log('Flash toggled:', newFlashState);
       } else {
+        console.warn('Flash not supported on this device');
         throw new Error('Flash non supporté sur cet appareil');
       }
     } catch (e) {
@@ -350,6 +357,31 @@ export const useCamera = () => {
       throw e;
     }
   }, [stream, flashEnabled]);
+
+  const updateVideoCodec = useCallback((codec: string) => {
+    setVideoCodec(codec);
+    console.log('Video codec set to:', codec);
+  }, []);
+
+  const updateFrameRate = useCallback((fps: number) => {
+    setFrameRate(fps);
+    console.log('Frame rate set to:', fps);
+  }, []);
+
+  const autoZoomForLens = useCallback(async (lensType: 'main' | 'ultrawide' | 'telephoto'): Promise<void> => {
+    const zoomLevels = {
+      'ultrawide': 0.5,
+      'main': 1.0,
+      'telephoto': 2.0
+    };
+    
+    try {
+      await applyZoom(zoomLevels[lensType]);
+      console.log(`Auto zoom applied for ${lensType} lens: ${zoomLevels[lensType]}x`);
+    } catch (e) {
+      console.warn('Auto zoom not supported:', e);
+    }
+  }, [applyZoom]);
 
   const initialize = useCallback(async (): Promise<void> => {
     try {
@@ -360,6 +392,9 @@ export const useCamera = () => {
       if (detectedDevices.length === 0) {
         throw new Error('Aucun objectif détecté. Vérifiez les permissions caméra.');
       }
+      
+      // Ensure devices state is updated
+      setDevices(detectedDevices);
       
       // Auto-select main camera or first available
       const mainCamera = detectedDevices.find(d => d.type === 'main') || detectedDevices[0];
@@ -384,6 +419,8 @@ export const useCamera = () => {
     isRecording,
     flashEnabled,
     videoRef,
+    videoCodec,
+    frameRate,
     initialize,
     switchToDevice,
     switchToLens,
@@ -392,6 +429,9 @@ export const useCamera = () => {
     stopVideoRecording,
     applyZoom,
     toggleFlash,
+    updateVideoCodec,
+    updateFrameRate,
+    autoZoomForLens,
     enumerateDevices
   };
 };

@@ -7,6 +7,7 @@ import { Histogram } from '@/components/camera/Histogram';
 import { StatusDisplay } from '@/components/camera/StatusDisplay';
 import { LensSelector } from '@/components/camera/LensSelector';
 import { StorageSelector } from '@/components/camera/StorageSelector';
+import VideoSettings from '@/components/camera/VideoSettings';
 import { Button } from '@/components/ui/button';
 import { Settings2, Menu, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -118,15 +119,37 @@ const Index = () => {
       const currentIndex = lensOrder.indexOf(currentType);
       const nextType = lensOrder[(currentIndex + 1) % lensOrder.length];
       
-      await camera.switchToLens(nextType);
-      toast({
-        title: "Objectif changé",
-        description: `Basculé vers ${nextType === 'main' ? 'Principal' : nextType === 'ultrawide' ? 'Ultra Grand-Angle' : 'Téléobjectif'}`,
-      });
+      await handleLensChange(nextType);
     } catch (error: any) {
       console.error('Switch camera error:', error);
       toast({
         title: "Échec du basculement",
+        description: error?.message || 'Objectif non disponible',
+        variant: "destructive" as any,
+      });
+    }
+  };
+
+  const handleLensChange = async (lensType: 'main' | 'ultrawide' | 'telephoto') => {
+    try {
+      await camera.switchToLens(lensType);
+      // Apply auto-zoom for lens type
+      await camera.autoZoomForLens(lensType);
+      
+      const lensNames = {
+        'main': 'Principal',
+        'ultrawide': 'Ultra Grand-Angle', 
+        'telephoto': 'Téléobjectif'
+      };
+      
+      toast({
+        title: "Objectif changé",
+        description: `Basculé vers ${lensNames[lensType]}`,
+      });
+    } catch (error: any) {
+      console.error('Lens change error:', error);
+      toast({
+        title: "Échec du changement d'objectif",
         description: error?.message || 'Objectif non disponible',
         variant: "destructive" as any,
       });
@@ -302,7 +325,7 @@ const Index = () => {
             <LensSelector
               devices={camera.devices}
               currentDevice={camera.currentDevice}
-              onLensChange={camera.switchToLens}
+              onLensChange={handleLensChange}
               disabled={isRecording}
             />
             
@@ -362,6 +385,14 @@ const Index = () => {
               onLocationChange={storage.setSelectedLocation}
             />
           </div>
+
+          {/* Video Settings */}
+          <VideoSettings
+            videoCodec={camera.videoCodec}
+            frameRate={camera.frameRate}
+            onCodecChange={camera.updateVideoCodec}
+            onFrameRateChange={camera.updateFrameRate}
+          />
         </div>
       )}
 
