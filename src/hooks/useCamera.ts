@@ -247,18 +247,41 @@ export const useCamera = () => {
     if (!stream) throw new Error('Camera not ready');
 
     recordedChunksRef.current = [];
-    
-    // Try multiple codec options for better compatibility
-    let mimeType = 'video/webm;codecs=vp8';
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-      mimeType = 'video/webm';
+
+    // Pick the best supported codec/container
+    const candidates = [
+      'video/mp4;codecs=h264',
+      'video/mp4;codecs=avc1',
+      'video/mp4',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm'
+    ];
+
+    let chosen: string | undefined = undefined;
+    for (const c of candidates) {
+      try {
+        if ((window as any).MediaRecorder?.isTypeSupported?.(c)) {
+          chosen = c;
+          break;
+        }
+      } catch (_) {
+        // ignore detection errors
+      }
     }
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-      mimeType = 'video/mp4';
+
+    const options: MediaRecorderOptions = chosen ? { mimeType: chosen } : {};
+    console.log('Using MIME type for recording:', chosen ?? '(browser default)');
+
+    let mediaRecorder: MediaRecorder;
+    try {
+      mediaRecorder = new MediaRecorder(stream, options);
+    } catch (err) {
+      console.warn('Preferred MIME init failed, retrying with browser default', err);
+      mediaRecorder = new MediaRecorder(stream);
     }
-    
-    console.log('Using MIME type for recording:', mimeType);
-    const mediaRecorder = new MediaRecorder(stream, { mimeType });
 
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
@@ -280,11 +303,11 @@ export const useCamera = () => {
       }
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+        const type = (mediaRecorder as any).mimeType || 'video/webm';
+        const blob = new Blob(recordedChunksRef.current, { type });
         setIsRecording(false);
         resolve(blob);
       };
-
       mediaRecorder.stop();
     });
   }, [isRecording]);
