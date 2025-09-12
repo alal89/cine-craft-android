@@ -195,30 +195,53 @@ export const useCamera = () => {
     return newStream;
   }, [stream]);
 
+  const stopVideoRecording = useCallback(async (): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const mediaRecorder = mediaRecorderRef.current;
+      if (!mediaRecorder) {
+        reject(new Error('No active recording'));
+        return;
+      }
+
+      if (mediaRecorder.state === 'inactive') {
+        reject(new Error('Recording already stopped'));
+        return;
+      }
+
+      mediaRecorder.onstop = () => {
+        const type = (mediaRecorder as any).mimeType || 'video/webm';
+        const blob = new Blob(recordedChunksRef.current, { type });
+        setIsRecording(false);
+        mediaRecorderRef.current = null;
+        resolve(blob);
+      };
+      
+      try {
+        mediaRecorder.stop();
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+        setIsRecording(false);
+        mediaRecorderRef.current = null;
+        reject(error);
+      }
+    });
+  }, []);
+
   const switchToDevice = useCallback(async (deviceId: string): Promise<void> => {
     try {
       console.log('Switching to device:', deviceId);
 
-      // Stop recording if active before switching and ensure UI updates
+      // Stop recording if active before switching
       if (isRecording && mediaRecorderRef.current) {
         console.log('Stopping active recording before lens switch');
         try {
-          mediaRecorderRef.current.stop();
-          // Wait for the stop event to be processed
-          await new Promise(resolve => {
-            if (mediaRecorderRef.current) {
-              mediaRecorderRef.current.onstop = () => {
-                setIsRecording(false);
-                resolve(void 0);
-              };
-            } else {
-              setIsRecording(false);
-              resolve(void 0);
-            }
-          });
+          if (mediaRecorderRef.current.state === 'recording') {
+            await stopVideoRecording();
+          }
         } catch (stopError) {
           console.warn('Error stopping recording:', stopError);
           setIsRecording(false);
+          mediaRecorderRef.current = null;
         }
       }
 
@@ -247,7 +270,7 @@ export const useCamera = () => {
       console.error('Failed to switch device:', error);
       throw error;
     }
-  }, [devices, startStream, isRecording, frameRate]);
+  }, [devices, startStream, isRecording, frameRate, stopVideoRecording]);
 
   const switchToLens = useCallback(async (type: 'main' | 'ultrawide' | 'telephoto'): Promise<void> => {
     const device = devices.find(d => d.type === type);
@@ -347,23 +370,6 @@ export const useCamera = () => {
     setIsRecording(true);
   }, [stream]);
 
-  const stopVideoRecording = useCallback(async (): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const mediaRecorder = mediaRecorderRef.current;
-      if (!mediaRecorder || !isRecording) {
-        reject(new Error('No active recording'));
-        return;
-      }
-
-      mediaRecorder.onstop = () => {
-        const type = (mediaRecorder as any).mimeType || 'video/webm';
-        const blob = new Blob(recordedChunksRef.current, { type });
-        setIsRecording(false);
-        resolve(blob);
-      };
-      mediaRecorder.stop();
-    });
-  }, [isRecording]);
 
   const applyZoom = useCallback(async (value: number): Promise<void> => {
     try {
@@ -453,40 +459,24 @@ export const useCamera = () => {
     try {
       console.log('Starting camera initialization...');
       
-      // First try to get basic camera access to request permissions
+      // Create fallback device immediately to show something to user
+      const fallbackDevice: CameraDevice = {
+        deviceId: 'default',
+        label: 'Caméra principale',
+        type: 'main',
+        megapixels: 12,
+        aperture: 'f/1.8',
+        features: ['Standard']
+      };
+      
+      setDevices([fallbackDevice]);
+      setCurrentDevice(fallbackDevice);
+      
+      // Start stream with basic constraints first
       try {
-        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        tempStream.getTracks().forEach(track => track.stop());
-        console.log('Camera permission granted');
-      } catch (permError) {
-        console.error('Camera permission denied:', permError);
-        throw new Error('Permission caméra refusée. Veuillez autoriser l\'accès à la caméra.');
-      }
-      
-      // Wait a bit before enumerating
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      const detectedDevices = await enumerateDevices();
-      console.log('Enumerated devices:', detectedDevices);
-      
-      if (detectedDevices.length === 0) {
-        console.log('No devices detected, creating fallback device');
-        // Create fallback device immediately
-        const fallbackDevice: CameraDevice = {
-          deviceId: 'default',
-          label: 'Caméra principale',
-          type: 'main',
-          megapixels: 12,
-          aperture: 'f/1.8',
-          features: ['Standard']
-        };
-        
-        setDevices([fallbackDevice]);
-        setCurrentDevice(fallbackDevice);
-        
-        // Start stream with basic constraints
         const constraints: MediaStreamConstraints = {
           video: {
+            facingMode: 'environment',
             width: { ideal: 1920 },
             height: { ideal: 1080 },
             frameRate: { ideal: frameRate }
@@ -495,38 +485,43 @@ export const useCamera = () => {
         };
         
         await startStream(constraints);
-        console.log('Fallback camera initialization successful');
-        return;
-      }
-      
-      // Update devices state
-      setDevices(detectedDevices);
-      
-      // Auto-select main camera or first available
-      const mainCamera = detectedDevices.find(d => d.type === 'main') || detectedDevices[0];
-      console.log('Selected camera:', mainCamera);
-      
-      if (mainCamera) {
-        const constraints: MediaStreamConstraints = {
-          video: {
-            deviceId: { exact: mainCamera.deviceId },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            frameRate: { ideal: frameRate }
-          } as MediaTrackConstraints,
-          audio: true
-        };
-
-        await startStream(constraints);
-        setCurrentDevice(mainCamera);
+        console.log('Basic camera stream started successfully');
         
-        console.log('Camera initialization completed successfully');
+        // Now try to enumerate devices in background
+        setTimeout(async () => {
+          try {
+            const detectedDevices = await enumerateDevices();
+            console.log('Background enumeration found:', detectedDevices.length, 'devices');
+            
+            if (detectedDevices.length > 0) {
+              setDevices(detectedDevices);
+              
+              // Try to switch to main camera if available
+              const mainCamera = detectedDevices.find(d => d.type === 'main') || detectedDevices[0];
+              if (mainCamera && mainCamera.deviceId !== 'default') {
+                try {
+                  await switchToDevice(mainCamera.deviceId);
+                  console.log('Switched to detected main camera:', mainCamera.label);
+                } catch (switchError) {
+                  console.warn('Could not switch to main camera, staying with default');
+                }
+              }
+            }
+          } catch (enumError) {
+            console.warn('Background enumeration failed:', enumError);
+          }
+        }, 1000);
+        
+      } catch (streamError) {
+        console.error('Failed to start camera stream:', streamError);
+        throw new Error('Impossible de démarrer la caméra. Vérifiez les permissions.');
       }
+      
     } catch (error) {
       console.error('Camera initialization failed:', error);
       throw error;
     }
-  }, [enumerateDevices, startStream, frameRate]);
+  }, [enumerateDevices, startStream, frameRate, switchToDevice]);
 
   return {
     devices,
