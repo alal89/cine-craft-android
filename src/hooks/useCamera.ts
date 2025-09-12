@@ -194,25 +194,40 @@ export const useCamera = () => {
   const switchToDevice = useCallback(async (deviceId: string): Promise<void> => {
     try {
       console.log('Switching to device:', deviceId);
-      console.log('Available devices (state):', devices.map(d => ({ id: d.deviceId, label: d.label, type: d.type })));
 
-      // Stop recording if active before switching
+      // Stop recording if active before switching and ensure UI updates
       if (isRecording && mediaRecorderRef.current) {
         console.log('Stopping active recording before lens switch');
-        mediaRecorderRef.current.stop();
-        setIsRecording(false);
+        try {
+          mediaRecorderRef.current.stop();
+          // Wait for the stop event to be processed
+          await new Promise(resolve => {
+            if (mediaRecorderRef.current) {
+              mediaRecorderRef.current.onstop = () => {
+                setIsRecording(false);
+                resolve(void 0);
+              };
+            } else {
+              setIsRecording(false);
+              resolve(void 0);
+            }
+          });
+        } catch (stopError) {
+          console.warn('Error stopping recording:', stopError);
+          setIsRecording(false);
+        }
       }
 
-      // Try to find device in state, but don't fail if not yet populated
-      let device = devices.find(d => d.deviceId === deviceId) || null;
+      // Find device or use fallback
+      let device = devices.find(d => d.deviceId === deviceId);
       if (!device) {
-        console.warn('Device not found in state list, creating fallback camera meta');
+        console.warn('Device not found, creating fallback');
         device = { deviceId, label: 'Caméra', type: 'main' } as CameraDevice;
       }
 
       const constraints: MediaStreamConstraints = {
         video: {
-          deviceId: { exact: deviceId },
+          deviceId: deviceId === 'default' ? undefined : { exact: deviceId },
           width: { ideal: 1920 },
           height: { ideal: 1080 },
           frameRate: { ideal: frameRate }
@@ -223,28 +238,12 @@ export const useCamera = () => {
       await startStream(constraints);
       setCurrentDevice(device);
       
-      // Apply auto zoom for the lens type with a delay
-      setTimeout(async () => {
-        const zoomLevels = {
-          'ultrawide': 0.5,
-          'main': 1.0,
-          'telephoto': 2.0
-        };
-        
-        try {
-          await applyZoom(zoomLevels[device.type]);
-          console.log(`Auto zoom applied for ${device.type} lens: ${zoomLevels[device.type]}x`);
-        } catch (e) {
-          console.warn('Auto zoom not supported:', e);
-        }
-      }, 500);
-      
       console.log(`Successfully switched to ${device.type} lens:`, device.label);
     } catch (error) {
       console.error('Failed to switch device:', error);
       throw error;
     }
-  }, [devices, startStream, isRecording, frameRate, stream]);
+  }, [devices, startStream, isRecording, frameRate]);
 
   const switchToLens = useCallback(async (type: 'main' | 'ultrawide' | 'telephoto'): Promise<void> => {
     const device = devices.find(d => d.type === type);
@@ -365,16 +364,29 @@ export const useCamera = () => {
   const applyZoom = useCallback(async (value: number): Promise<void> => {
     try {
       const track = stream?.getVideoTracks()[0];
-      const capabilities = track?.getCapabilities?.();
+      if (!track) {
+        console.warn('No video track available for zoom');
+        return;
+      }
+      
+      const capabilities = track.getCapabilities?.();
       
       if (capabilities && 'zoom' in capabilities) {
+        const zoomCapability = (capabilities as any).zoom;
+        const clampedValue = Math.max(
+          zoomCapability.min || 1, 
+          Math.min(zoomCapability.max || 10, value)
+        );
+        
         await track.applyConstraints({
-          advanced: [{ zoom: value } as any]
+          advanced: [{ zoom: clampedValue } as any]
         });
-        console.log('Applied native zoom:', value);
+        console.log('Applied native zoom:', clampedValue);
+      } else {
+        console.warn('Zoom not supported by current camera');
       }
     } catch (e) {
-      console.warn('Native zoom not supported:', e);
+      console.warn('Native zoom application failed:', e);
     }
   }, [stream]);
 
@@ -430,14 +442,54 @@ export const useCamera = () => {
   const initialize = useCallback(async (): Promise<void> => {
     try {
       console.log('Starting camera initialization...');
+      
+      // First try to get basic camera access to request permissions
+      try {
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        tempStream.getTracks().forEach(track => track.stop());
+        console.log('Camera permission granted');
+      } catch (permError) {
+        console.error('Camera permission denied:', permError);
+        throw new Error('Permission caméra refusée. Veuillez autoriser l\'accès à la caméra.');
+      }
+      
+      // Wait a bit before enumerating
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       const detectedDevices = await enumerateDevices();
       console.log('Enumerated devices:', detectedDevices);
       
       if (detectedDevices.length === 0) {
-        throw new Error('Aucun objectif détecté. Vérifiez les permissions caméra.');
+        console.log('No devices detected, creating fallback device');
+        // Create fallback device immediately
+        const fallbackDevice: CameraDevice = {
+          deviceId: 'default',
+          label: 'Caméra principale',
+          type: 'main',
+          megapixels: 12,
+          aperture: 'f/1.8',
+          features: ['Standard']
+        };
+        
+        setDevices([fallbackDevice]);
+        setCurrentDevice(fallbackDevice);
+        
+        // Start stream with basic constraints
+        const constraints: MediaStreamConstraints = {
+          video: {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: frameRate }
+          },
+          audio: true
+        };
+        
+        await startStream(constraints);
+        console.log('Fallback camera initialization successful');
+        return;
       }
       
-      // Ensure devices state is updated
+      // Update devices state
       setDevices(detectedDevices);
       
       // Auto-select main camera or first available
@@ -445,10 +497,9 @@ export const useCamera = () => {
       console.log('Selected camera:', mainCamera);
       
       if (mainCamera) {
-        // Use a more robust approach for initial camera setup
         const constraints: MediaStreamConstraints = {
           video: {
-            deviceId: { ideal: mainCamera.deviceId },
+            deviceId: { exact: mainCamera.deviceId },
             width: { ideal: 1920 },
             height: { ideal: 1080 },
             frameRate: { ideal: frameRate }
@@ -459,63 +510,13 @@ export const useCamera = () => {
         await startStream(constraints);
         setCurrentDevice(mainCamera);
         
-        // Apply auto zoom for main camera with delay
-        setTimeout(async () => {
-          try {
-            const track = stream?.getVideoTracks()[0];
-            const capabilities = track?.getCapabilities?.();
-            
-            if (capabilities && 'zoom' in capabilities) {
-              const zoomLevels = {
-                'ultrawide': 0.5,
-                'main': 1.0,
-                'telephoto': 2.0
-              };
-              
-              await track.applyConstraints({
-                advanced: [{ zoom: zoomLevels[mainCamera.type] } as any]
-              });
-              console.log(`Auto zoom applied for ${mainCamera.type} lens: ${zoomLevels[mainCamera.type]}x`);
-            }
-          } catch (e) {
-            console.warn('Auto zoom not supported:', e);
-          }
-        }, 1000); // Longer delay for initialization
-        
         console.log('Camera initialization completed successfully');
-      } else {
-        throw new Error('Impossible de sélectionner un objectif');
       }
     } catch (error) {
       console.error('Camera initialization failed:', error);
-      // Try with basic constraints as fallback
-      try {
-        console.log('Attempting fallback initialization...');
-        const constraints: MediaStreamConstraints = {
-          video: true,
-          audio: true
-        };
-        await startStream(constraints);
-        
-        // Create a basic camera device if enumeration failed
-        const fallbackDevice: CameraDevice = {
-          deviceId: 'default',
-          label: 'Caméra par défaut',
-          type: 'main',
-          megapixels: 12,
-          aperture: 'f/1.8',
-          features: ['Standard']
-        };
-        
-        setDevices([fallbackDevice]);
-        setCurrentDevice(fallbackDevice);
-        console.log('Fallback camera initialization successful');
-      } catch (fallbackError) {
-        console.error('Fallback initialization also failed:', fallbackError);
-        throw error;
-      }
+      throw error;
     }
-  }, [enumerateDevices, startStream, frameRate, stream]);
+  }, [enumerateDevices, startStream, frameRate]);
 
   return {
     devices,
