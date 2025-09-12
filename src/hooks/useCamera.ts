@@ -119,18 +119,37 @@ export const useCamera = () => {
 
   const enumerateDevices = useCallback(async (): Promise<CameraDevice[]> => {
     try {
+      console.log('Starting device enumeration...');
+      
       // First request basic permissions with any available camera
-      const tempStream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, // More permissive constraint
-        audio: false // Don't request audio for enumeration
-      });
-      console.log('Got temp stream for permissions');
+      let tempStream: MediaStream | null = null;
+      try {
+        tempStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' }, // Try back camera first
+          audio: false
+        });
+        console.log('Got camera permission with environment facing mode');
+      } catch (envError) {
+        console.log('Environment facing mode failed, trying any camera...');
+        try {
+          tempStream = await navigator.mediaDevices.getUserMedia({ 
+            video: true,
+            audio: false
+          });
+          console.log('Got camera permission with any camera');
+        } catch (anyError) {
+          console.error('Camera permission completely denied:', anyError);
+          throw new Error('Permission caméra refusée');
+        }
+      }
       
       // Stop the temp stream to free up resources
-      tempStream.getTracks().forEach(track => track.stop());
+      if (tempStream) {
+        tempStream.getTracks().forEach(track => track.stop());
+      }
       
       // Wait a bit for resources to be freed
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       // Now enumerate devices (should have labels after permission)
       const allDevices = await navigator.mediaDevices.enumerateDevices();
@@ -140,7 +159,8 @@ export const useCamera = () => {
       console.log('Video input devices:', videoDevices);
       
       if (videoDevices.length === 0) {
-        throw new Error('Aucun périphérique vidéo détecté');
+        console.warn('No video devices detected');
+        return [];
       }
       
       const cameraDevices = detectOnePlusLenses(allDevices);
@@ -149,24 +169,8 @@ export const useCamera = () => {
       setDevices(cameraDevices);
       return cameraDevices;
     } catch (error) {
-      console.error('Failed to enumerate devices:', error);
-      // Fallback: try with less specific constraints
-      try {
-        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-        fallbackStream.getTracks().forEach(track => track.stop());
-        
-        const allDevices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
-        
-        if (videoDevices.length > 0) {
-          const cameraDevices = detectOnePlusLenses(allDevices);
-          setDevices(cameraDevices);
-          return cameraDevices;
-        }
-      } catch (fallbackError) {
-        console.error('Fallback enumeration also failed:', fallbackError);
-      }
-      throw error;
+      console.error('Device enumeration failed:', error);
+      return [];
     }
   }, []);
 
@@ -393,9 +397,13 @@ export const useCamera = () => {
   const toggleFlash = useCallback(async (): Promise<void> => {
     try {
       const track = stream?.getVideoTracks()[0];
-      if (!track) throw new Error('Aucun flux vidéo disponible');
+      if (!track) {
+        console.warn('No video track available for flash');
+        throw new Error('Aucun flux vidéo disponible');
+      }
       
       const capabilities = track.getCapabilities?.() as any;
+      console.log('Track capabilities:', capabilities);
       
       if (capabilities && capabilities.torch) {
         const newFlashState = !flashEnabled;
@@ -405,12 +413,14 @@ export const useCamera = () => {
         setFlashEnabled(newFlashState);
         console.log('Flash toggled:', newFlashState);
       } else {
-        console.warn('Flash not supported on this device');
-        throw new Error('Flash non supporté sur cet appareil');
+        console.warn('Torch capability not available');
+        // Don't throw error, just log warning
+        setFlashEnabled(false);
       }
     } catch (e) {
-      console.warn('Flash not supported:', e);
-      throw e;
+      console.warn('Flash toggle failed:', e);
+      setFlashEnabled(false);
+      // Don't throw error to prevent UI breaking
     }
   }, [stream, flashEnabled]);
 

@@ -35,11 +35,12 @@ const Index = () => {
         
         // Wait a bit for devices to be set
         setTimeout(() => {
+          const deviceCount = camera.devices?.length || 0;
           toast({
             title: "Caméra initialisée",
-            description: `${camera.devices.length} objectif(s) détecté(s)`,
+            description: `${deviceCount} objectif(s) détecté(s)`,
           });
-        }, 100);
+        }, 500);
       } catch (error: any) {
         console.error('Camera init failed:', error);
         toast({
@@ -274,10 +275,11 @@ const Index = () => {
                     description: camera.flashEnabled ? "Flash allumé" : "Flash éteint"
                   });
                 } catch (error: any) {
+                  console.warn('Flash error handled:', error);
                   toast({
-                    title: "Erreur flash",
-                    description: error.message,
-                    variant: "destructive" as any
+                    title: "Flash non disponible",
+                    description: "Ce périphérique ne prend pas en charge le flash",
+                    variant: "default" as any
                   });
                 }
               }}
