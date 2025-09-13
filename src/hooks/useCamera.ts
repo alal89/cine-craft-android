@@ -18,6 +18,7 @@ export interface CameraAPI {
   startVideoRecording: () => Promise<void>;
   stopVideoRecording: () => Promise<Blob>;
   applyZoom: (value: number) => Promise<void>;
+  applyZoomWithAutoLens: (value: number, autoSwitchLens?: boolean) => Promise<void>;
   toggleFlash: () => Promise<void>;
 }
 
@@ -416,6 +417,38 @@ export const useCamera = () => {
     }
   }, [stream]);
 
+  // Auto lens switching based on zoom level
+  const applyZoomWithAutoLens = useCallback(async (value: number, autoSwitchLens: boolean = true): Promise<void> => {
+    try {
+      // Auto switch lens based on zoom level if enabled
+      if (autoSwitchLens && devices.length > 1) {
+        let targetLens: 'ultrawide' | 'main' | 'telephoto' = 'main';
+        
+        if (value < 0.8) {
+          targetLens = 'ultrawide';
+        } else if (value > 2.5) {
+          targetLens = 'telephoto';
+        } else {
+          targetLens = 'main';
+        }
+        
+        const targetDevice = devices.find(d => d.type === targetLens);
+        if (targetDevice && targetDevice.deviceId !== currentDevice?.deviceId) {
+          console.log(`Auto switching to ${targetLens} lens for zoom ${value}x`);
+          await switchToDevice(targetDevice.deviceId);
+          return; // Don't apply zoom immediately, let the lens switch handle it
+        }
+      }
+      
+      // Apply zoom to current lens
+      await applyZoom(value);
+    } catch (e) {
+      console.warn('Auto zoom with lens switching failed:', e);
+      // Fallback to regular zoom
+      await applyZoom(value);
+    }
+  }, [devices, currentDevice, applyZoom, switchToDevice]);
+
   const toggleFlash = useCallback(async (): Promise<void> => {
     try {
       const track = stream?.getVideoTracks()[0];
@@ -555,6 +588,7 @@ export const useCamera = () => {
     startVideoRecording,
     stopVideoRecording,
     applyZoom,
+    applyZoomWithAutoLens,
     toggleFlash,
     updateVideoCodec,
     updateFrameRate,

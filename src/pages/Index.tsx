@@ -8,11 +8,13 @@ import { StatusDisplay } from '@/components/camera/StatusDisplay';
 import { LensSelector } from '@/components/camera/LensSelector';
 import { StorageSelector } from '@/components/camera/StorageSelector';
 import VideoSettings from '@/components/camera/VideoSettings';
+import { AudioSettings } from '@/components/camera/AudioSettings';
 import { Button } from '@/components/ui/button';
 import { Settings2, Menu, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useCamera } from '@/hooks/useCamera';
 import { useStorage } from '@/hooks/useStorage';
+import { useAudio } from '@/hooks/useAudio';
 
 const Index = () => {
   const [currentMode, setCurrentMode] = useState<'photo' | 'video'>('video');
@@ -25,6 +27,7 @@ const Index = () => {
   // New hooks for advanced camera and storage management
   const camera = useCamera();
   const storage = useStorage();
+  const audio = useAudio();
 
   // Initialize camera on mount
   useEffect(() => {
@@ -178,7 +181,12 @@ const Index = () => {
   };
   const handleZoomChange = async (newZoom: number) => {
     setZoom(newZoom);
-    await camera.applyZoom(newZoom);
+    try {
+      // Use auto lens switching by default
+      await camera.applyZoomWithAutoLens(newZoom, true);
+    } catch (error) {
+      console.error('Zoom change failed:', error);
+    }
   };
   return (
     <div className="min-h-screen bg-cinema-background flex flex-col relative overflow-hidden">
@@ -414,6 +422,15 @@ const Index = () => {
             frameRate={camera.frameRate}
             onCodecChange={camera.updateVideoCodec}
             onFrameRateChange={camera.updateFrameRate}
+          />
+
+          {/* Audio Settings */}
+          <AudioSettings
+            microphoneEnabled={audio.microphoneEnabled}
+            audioGain={audio.audioGain}
+            onMicrophoneToggle={audio.setMicrophoneEnabled}
+            onAudioGainChange={audio.setAudioGain}
+            onAudioDeviceChange={audio.switchAudioDevice}
           />
         </div>
       )}
