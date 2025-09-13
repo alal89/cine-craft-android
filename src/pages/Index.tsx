@@ -133,6 +133,26 @@ const Index = () => {
 
   const handleLensChange = async (lensType: 'main' | 'ultrawide' | 'telephoto') => {
     try {
+      // If recording, stop and save the video first
+      if (isRecording) {
+        try {
+          const blob = await camera.stopVideoRecording();
+          await storage.saveVideo(blob);
+          toast({
+            title: "Enregistrement sauvegardé",
+            description: "Vidéo sauvegardée avant changement d'objectif",
+          });
+        } catch (saveError: any) {
+          console.error('Failed to save recording before lens change:', saveError);
+          toast({
+            title: "Erreur de sauvegarde",
+            description: "Impossible de sauvegarder l'enregistrement",
+            variant: "destructive" as any,
+          });
+        }
+        setIsRecording(false);
+      }
+
       await camera.switchToLens(lensType);
       // Apply auto-zoom for lens type
       await camera.autoZoomForLens(lensType);

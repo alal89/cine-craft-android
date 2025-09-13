@@ -209,11 +209,28 @@ export const useCamera = () => {
       }
 
       mediaRecorder.onstop = () => {
-        const type = (mediaRecorder as any).mimeType || 'video/webm';
-        const blob = new Blob(recordedChunksRef.current, { type });
+        try {
+          const type = (mediaRecorder as any).mimeType || 'video/webm';
+          const blob = new Blob(recordedChunksRef.current, { type });
+          recordedChunksRef.current = [];
+          setIsRecording(false);
+          mediaRecorderRef.current = null;
+          resolve(blob);
+        } catch (error) {
+          console.error('Error creating video blob:', error);
+          recordedChunksRef.current = [];
+          setIsRecording(false);
+          mediaRecorderRef.current = null;
+          reject(error);
+        }
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error('Recording error:', event);
+        recordedChunksRef.current = [];
         setIsRecording(false);
         mediaRecorderRef.current = null;
-        resolve(blob);
+        reject(new Error('Recording failed'));
       };
       
       try {
@@ -369,7 +386,6 @@ export const useCamera = () => {
     mediaRecorder.start(1000); // 1 second chunks
     setIsRecording(true);
   }, [stream]);
-
 
   const applyZoom = useCallback(async (value: number): Promise<void> => {
     try {
