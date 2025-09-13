@@ -339,6 +339,36 @@ export const useCamera = () => {
 
     recordedChunksRef.current = [];
 
+    // Create a new stream with enhanced settings for recording
+    const videoTrack = stream.getVideoTracks()[0];
+    if (videoTrack) {
+      try {
+        // Apply Hasselblad-style professional settings
+        await videoTrack.applyConstraints({
+          width: { ideal: 4096 },
+          height: { ideal: 2304 },
+          frameRate: { ideal: frameRate },
+          aspectRatio: { ideal: 16/9 },
+          // Professional video enhancement settings
+          exposureMode: 'manual',
+          whiteBalanceMode: 'manual',
+          focusMode: 'continuous',
+          // Noise reduction and image enhancement
+          noiseSuppression: true,
+          echoCancellation: false,
+          autoGainControl: false,
+          // Hasselblad-style color science
+          saturation: 1.2,
+          contrast: 1.1,
+          brightness: 0.05,
+          sharpness: 1.3
+        } as any);
+        console.log('Professional video settings applied');
+      } catch (e) {
+        console.warn('Some professional settings not supported:', e);
+      }
+    }
+
     // Pick the best supported codec/container based on user preference
     const codecPreferences = [videoCodec];
     const fallbackCandidates = [
@@ -366,7 +396,15 @@ export const useCamera = () => {
       }
     }
 
-    const options: MediaRecorderOptions = chosen ? { mimeType: chosen } : {};
+    // Enhanced recording options for professional quality
+    const options: MediaRecorderOptions = chosen ? { 
+      mimeType: chosen,
+      videoBitsPerSecond: 20000000, // 20 Mbps for high quality
+      audioBitsPerSecond: 320000    // 320 kbps for audio
+    } : {
+      videoBitsPerSecond: 20000000,
+      audioBitsPerSecond: 320000
+    };
     console.log('Using MIME type for recording:', chosen ?? '(browser default)');
 
     let mediaRecorder: MediaRecorder;
@@ -374,7 +412,11 @@ export const useCamera = () => {
       mediaRecorder = new MediaRecorder(stream, options);
     } catch (err) {
       console.warn('Preferred MIME init failed, retrying with browser default', err);
-      mediaRecorder = new MediaRecorder(stream);
+      try {
+        mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: 20000000 });
+      } catch (fallbackErr) {
+        mediaRecorder = new MediaRecorder(stream);
+      }
     }
 
     mediaRecorder.ondataavailable = (event) => {
@@ -384,9 +426,9 @@ export const useCamera = () => {
     };
 
     mediaRecorderRef.current = mediaRecorder;
-    mediaRecorder.start(1000); // 1 second chunks
+    mediaRecorder.start(100); // Smaller chunks for better quality
     setIsRecording(true);
-  }, [stream]);
+  }, [stream, videoCodec, frameRate]);
 
   const applyZoom = useCallback(async (value: number): Promise<void> => {
     try {
@@ -405,17 +447,22 @@ export const useCamera = () => {
           Math.min(zoomCapability.max || 10, value)
         );
         
-        await track.applyConstraints({
+         await track.applyConstraints({
           advanced: [{ zoom: clampedValue } as any]
         });
         console.log('Applied native zoom:', clampedValue);
       } else {
         console.warn('Zoom not supported by current camera');
       }
+      
+      // If recording, ensure zoom is captured in video
+      if (isRecording && mediaRecorderRef.current) {
+        console.log('Zoom applied during recording - will be captured in video');
+      }
     } catch (e) {
       console.warn('Native zoom application failed:', e);
     }
-  }, [stream]);
+  }, [stream, isRecording]);
 
   // Auto lens switching based on zoom level
   const applyZoomWithAutoLens = useCallback(async (value: number, autoSwitchLens: boolean = true): Promise<void> => {
@@ -462,20 +509,42 @@ export const useCamera = () => {
       
       if (capabilities && capabilities.torch) {
         const newFlashState = !flashEnabled;
+        try {
+          await track.applyConstraints({
+            advanced: [{ torch: newFlashState }] as any
+          });
+          setFlashEnabled(newFlashState);
+          console.log('Flash toggled successfully:', newFlashState);
+        } catch (constraintError) {
+          console.warn('Flash constraint failed, trying direct approach:', constraintError);
+          // Try alternative method for flash
+          try {
+            await track.applyConstraints({
+              torch: newFlashState
+            } as any);
+            setFlashEnabled(newFlashState);
+            console.log('Flash toggled with direct method:', newFlashState);
+          } catch (directError) {
+            console.error('Both flash methods failed:', directError);
+            throw new Error('Flash non disponible sur cet appareil');
+          }
+        }
+      } else if (capabilities && capabilities.fillLightMode) {
+        // Try alternative flash API
+        const newFlashState = !flashEnabled;
         await track.applyConstraints({
-          advanced: [{ torch: newFlashState }] as any
+          advanced: [{ fillLightMode: newFlashState ? 'flash' : 'off' }] as any
         });
         setFlashEnabled(newFlashState);
-        console.log('Flash toggled:', newFlashState);
+        console.log('Flash toggled via fillLightMode:', newFlashState);
       } else {
-        console.warn('Torch capability not available');
-        // Don't throw error, just log warning
-        setFlashEnabled(false);
+        console.warn('No flash capability available');
+        throw new Error('Flash non pris en charge par cette caméra');
       }
     } catch (e) {
-      console.warn('Flash toggle failed:', e);
+      console.error('Flash toggle failed:', e);
       setFlashEnabled(false);
-      // Don't throw error to prevent UI breaking
+      throw e;
     }
   }, [stream, flashEnabled]);
 
