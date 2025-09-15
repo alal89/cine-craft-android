@@ -277,7 +277,7 @@ export const useCamera = () => {
           height: { ideal: 1080 },
           frameRate: { ideal: frameRate }
         } as MediaTrackConstraints,
-        audio: true
+        audio: false  // Don't request audio when switching devices
       };
 
       await startStream(constraints);
@@ -339,9 +339,29 @@ export const useCamera = () => {
 
     recordedChunksRef.current = [];
 
-    // Create a new stream with enhanced settings for recording
+    // Get audio stream separately for recording
+    let audioStream: MediaStream | null = null;
+    try {
+      audioStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 2
+        }
+      });
+    } catch (audioError) {
+      console.warn('Audio stream not available for recording:', audioError);
+    }
+
+    // Combine video and audio streams for recording
+    const recordingStream = new MediaStream();
+    
+    // Add video tracks
     const videoTrack = stream.getVideoTracks()[0];
     if (videoTrack) {
+      recordingStream.addTrack(videoTrack);
       try {
         // Apply Hasselblad-style professional settings
         await videoTrack.applyConstraints({
@@ -367,6 +387,13 @@ export const useCamera = () => {
       } catch (e) {
         console.warn('Some professional settings not supported:', e);
       }
+    }
+
+    // Add audio tracks if available
+    if (audioStream) {
+      audioStream.getAudioTracks().forEach(track => {
+        recordingStream.addTrack(track);
+      });
     }
 
     // Pick the best supported codec/container based on user preference
@@ -409,13 +436,13 @@ export const useCamera = () => {
 
     let mediaRecorder: MediaRecorder;
     try {
-      mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorder = new MediaRecorder(recordingStream, options);
     } catch (err) {
       console.warn('Preferred MIME init failed, retrying with browser default', err);
       try {
-        mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: 20000000 });
+        mediaRecorder = new MediaRecorder(recordingStream, { videoBitsPerSecond: 20000000 });
       } catch (fallbackErr) {
-        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder = new MediaRecorder(recordingStream);
       }
     }
 
@@ -599,7 +626,7 @@ export const useCamera = () => {
             height: { ideal: 1080 },
             frameRate: { ideal: frameRate }
           },
-          audio: true
+          audio: false  // Don't request audio during initialization
         };
         
         await startStream(constraints);
