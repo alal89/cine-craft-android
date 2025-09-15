@@ -630,7 +630,22 @@ export const useCamera = () => {
         };
         
         await startStream(constraints);
-        console.log('Basic camera stream started successfully');
+        console.log('Camera stream started with environment facing mode');
+      } catch (environmentError) {
+        console.warn('Environment facing mode failed, trying basic video:', environmentError);
+        try {
+          const basicConstraints: MediaStreamConstraints = {
+            video: true,
+            audio: false
+          };
+          
+          await startStream(basicConstraints);
+          console.log('Basic camera stream started successfully');
+        } catch (basicError) {
+          console.error('All camera initialization attempts failed:', basicError);
+          throw new Error('Impossible de démarrer la caméra. Vérifiez les permissions.');
+        }
+      }
         
         // Now try to enumerate devices in background
         setTimeout(async () => {
