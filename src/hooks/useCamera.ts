@@ -35,7 +35,7 @@ export const useCamera = () => {
   const recordedChunksRef = useRef<Blob[]>([]);
 
   const identifyLensType = (label: string): 'main' | 'ultrawide' | 'telephoto' => {
-    const lower = label.toLowerCase();
+    const lower = (label || '').toLowerCase();
     if (lower.includes('ultra') || lower.includes('wide') || lower.includes('macro')) {
       return 'ultrawide';
     }
@@ -51,14 +51,14 @@ export const useCamera = () => {
     
     // Filter for back cameras only
     let backCameras = videoDevices.filter(d => 
-      /back|rear|environment|facing back/i.test(d.label) && 
-      !/front|selfie|user|facing front/i.test(d.label)
+      /back|rear|environment|facing back/i.test(d.label || '') && 
+      !/front|selfie|user|facing front/i.test(d.label || '')
     );
     
     // Fallback: if no back cameras detected, use all video devices except front
     if (backCameras.length === 0) {
       console.log('No back cameras detected, using all non-front video devices');
-      backCameras = videoDevices.filter(d => !/front|selfie|user|facing front/i.test(d.label));
+      backCameras = videoDevices.filter(d => !/front|selfie|user|facing front/i.test(d.label || ''));
     }
 
     return backCameras.map((device, index) => {
@@ -69,19 +69,19 @@ export const useCamera = () => {
       let features: string[];
       
       // OnePlus 11 camera mapping based on device labels
-      if (device.label.includes('back:0')) {
+      if ((device.label || '').includes('back:0')) {
         // Main camera - 50MP Sony IMX890
         type = 'main';
         megapixels = 50;
         aperture = 'f/1.8';
         features = ['OIS', 'EIS', 'Sony IMX890'];
-      } else if (device.label.includes('back:2')) {
+      } else if ((device.label || '').includes('back:2')) {
         // Ultra-wide camera - 48MP Sony IMX581  
         type = 'ultrawide';
         megapixels = 48;
         aperture = 'f/2.2';
         features = ['115° FOV', 'Macro', 'Sony IMX581'];
-      } else if (device.label.includes('back:3')) {
+      } else if ((device.label || '').includes('back:3')) {
         // Telephoto camera - 32MP Sony IMX709
         type = 'telephoto';
         megapixels = 32;
@@ -109,7 +109,7 @@ export const useCamera = () => {
 
       return {
         deviceId: device.deviceId,
-        label: device.label,
+        label: device.label || 'Caméra inconnue',
         type,
         megapixels,
         aperture,
