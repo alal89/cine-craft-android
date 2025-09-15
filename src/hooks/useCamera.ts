@@ -376,12 +376,7 @@ export const useCamera = () => {
           // Noise reduction and image enhancement
           noiseSuppression: true,
           echoCancellation: false,
-          autoGainControl: false,
-          // Hasselblad-style color science
-          saturation: 1.2,
-          contrast: 1.1,
-          brightness: 0.05,
-          sharpness: 1.3
+          autoGainControl: false
         } as any);
         console.log('Professional video settings applied');
       } catch (e) {
