@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Settings, 
   Sun, 
@@ -26,9 +27,11 @@ export const ControlPanel = ({ currentMode, onModeChange }: ControlPanelProps) =
   const [audioGain, setAudioGain] = useState([0]);
 
   return (
-    <div className="bg-cinema-surface p-4 rounded-lg space-y-6">
-      {/* Mode Selector */}
-      <div className="flex space-x-2">
+    <div className="bg-cinema-surface rounded-lg h-full flex flex-col">
+      <ScrollArea className="flex-1 p-4">
+        <div className="space-y-6">
+          {/* Mode Selector */}
+          <div className="flex space-x-2">
         <Button
           variant={currentMode === 'photo' ? 'default' : 'secondary'}
           onClick={() => onModeChange('photo')}
@@ -196,6 +199,8 @@ export const ControlPanel = ({ currentMode, onModeChange }: ControlPanelProps) =
           />
         </div>
       </div>
+      </div>
+      </ScrollArea>
     </div>
   );
 };
