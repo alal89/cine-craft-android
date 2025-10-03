@@ -118,7 +118,7 @@ const Index = () => {
   const handleSwitchCamera = async () => {
     try {
       // Cycle through available lenses automatically
-      const currentType = camera.currentDevice?.type || 'main';
+      const currentType = (camera.currentDevice?.type || 'main') as 'main' | 'ultrawide' | 'telephoto';
       const lensOrder: Array<'main' | 'ultrawide' | 'telephoto'> = ['main', 'ultrawide', 'telephoto'];
       const currentIndex = lensOrder.indexOf(currentType);
       const nextType = lensOrder[(currentIndex + 1) % lensOrder.length];
@@ -156,9 +156,11 @@ const Index = () => {
         setIsRecording(false);
       }
 
-      await camera.switchToLens(lensType);
-      // Apply auto-zoom for lens type
-      await camera.autoZoomForLens(lensType);
+      // Find the device with the matching lens type
+      const targetDevice = camera.devices.find(d => d.type === lensType);
+      if (targetDevice) {
+        await camera.switchCamera(targetDevice.deviceId);
+      }
       
       const lensNames = {
         'main': 'Principal',
@@ -183,7 +185,7 @@ const Index = () => {
     setZoom(newZoom);
     try {
       // Use auto lens switching by default
-      await camera.applyZoomWithAutoLens(newZoom, true);
+      await camera.applyZoom(newZoom);
     } catch (error) {
       console.error('Zoom change failed:', error);
     }

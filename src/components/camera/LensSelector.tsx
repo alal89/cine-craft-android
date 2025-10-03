@@ -82,7 +82,7 @@ export const LensSelector = ({ devices, currentDevice, onLensChange, disabled }:
         <div className="bg-cinema-surface-elevated/90 backdrop-blur-sm p-3 rounded-lg border border-cinema-primary/20">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-cinema-text-primary text-sm font-medium">
-              {getDisplayName(currentDevice.type)}
+              {getDisplayName((currentDevice.type || 'main') as 'main' | 'ultrawide' | 'telephoto')}
             </h4>
             <Badge variant="secondary" className="text-xs">
               {currentDevice.megapixels}MP
