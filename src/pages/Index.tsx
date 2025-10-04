@@ -34,16 +34,25 @@ const Index = () => {
     const initCamera = async () => {
       try {
         console.log('Initializing camera from Index component...');
-        await camera.initialize();
+        const stream = await camera.initialize();
         
-        // Wait a bit for devices to be set
-        setTimeout(() => {
+        if (stream) {
+          // Camera initialized successfully, devices should be loaded
+          console.log('Camera initialized, devices:', camera.devices);
           const deviceCount = camera.devices?.length || 0;
-          toast({
-            title: "Caméra initialisée",
-            description: `${deviceCount} objectif(s) détecté(s)`,
-          });
-        }, 500);
+          
+          if (deviceCount > 0) {
+            toast({
+              title: "Caméra initialisée",
+              description: `${deviceCount} objectif(s) détecté(s)`,
+            });
+          } else {
+            toast({
+              title: "Caméra démarrée",
+              description: "Caméra active",
+            });
+          }
+        }
       } catch (error: any) {
         console.error('Camera init failed:', error);
         toast({
@@ -347,7 +356,7 @@ const Index = () => {
         </div>
 
         {showControls && (
-          <button aria-label="Fermer les paramètres" className="absolute inset-0 z-30 bg-black/30" onClick={() => setShowControls(false)} />
+          <button aria-label="Fermer les paramètres" className="absolute inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setShowControls(false)} />
         )}
 
         {/* Side panel - lens selector, histogram and monitoring - ONLY show when controls are open */}
@@ -403,9 +412,9 @@ const Index = () => {
 
       {/* Control panel - Mobile optimized with full screen overlay */}
       {showControls && (
-        <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:absolute lg:left-4 lg:top-20 lg:bottom-32 lg:w-80 lg:bg-transparent lg:backdrop-blur-none">
-          <div className="h-full w-full lg:w-auto overflow-auto p-4 lg:p-0">
-            <div className="max-w-md mx-auto lg:max-w-none space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md lg:absolute lg:left-4 lg:top-20 lg:bottom-32 lg:w-80 lg:bg-transparent lg:backdrop-blur-none">
+          <div className="h-full w-full lg:w-auto overflow-y-auto p-4 lg:p-0 pt-16 lg:pt-0">
+            <div className="max-w-md mx-auto lg:max-w-none space-y-4 pb-8">
               <ControlPanel 
                 currentMode={currentMode}
                 onModeChange={setCurrentMode}
