@@ -29,20 +29,30 @@ const Index = () => {
   const storage = useStorage();
   const audio = useAudio();
 
-  // Initialize camera on mount
+  // Initialize camera after video element is mounted
   useEffect(() => {
     const initCamera = async () => {
+      // Wait a bit for the video element to be in the DOM
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      if (!camera.videoRef.current) {
+        console.error('Video element not found in DOM');
+        toast({
+          title: "Erreur",
+          description: "Élément vidéo non trouvé",
+          variant: "destructive" as any,
+        });
+        return;
+      }
+
       try {
-        console.log('Initializing camera from Index component...');
+        console.log('Initializing camera...');
         const stream = await camera.initialize();
         
         console.log('Stream received:', stream);
         console.log('Video tracks:', stream?.getVideoTracks());
-        console.log('VideoRef current:', camera.videoRef.current);
         
-        if (stream) {
-          // Camera initialized successfully, devices should be loaded
-          console.log('Camera initialized, devices:', camera.devices);
+        if (stream && stream.active) {
           const deviceCount = camera.devices?.length || 0;
           
           if (deviceCount > 0) {
@@ -57,10 +67,10 @@ const Index = () => {
             });
           }
         } else {
-          console.error('No stream returned from camera.initialize()');
+          console.error('No active stream');
           toast({
             title: "Erreur",
-            description: "Pas de flux vidéo disponible",
+            description: "Flux vidéo inactif",
             variant: "destructive" as any,
           });
         }
@@ -68,7 +78,7 @@ const Index = () => {
         console.error('Camera init failed:', error);
         toast({
           title: "Erreur caméra",
-          description: error.message || "Impossible d'initialiser la caméra. Vérifiez les permissions.",
+          description: error.message || "Impossible d'initialiser la caméra",
           variant: "destructive" as any,
         });
       }

@@ -112,10 +112,22 @@ export const useCamera = () => {
 
       setStream(newStream);
 
+      // Wait for video element to be ready
       if (videoRef.current) {
+        console.log('Setting video source...');
         videoRef.current.srcObject = newStream;
-        // Force video to play
-        videoRef.current.play().catch(e => console.warn('Video play error:', e));
+        videoRef.current.muted = true;
+        videoRef.current.playsInline = true;
+        
+        // Wait for metadata to load before playing
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded, attempting to play...');
+          videoRef.current?.play()
+            .then(() => console.log('Video playing successfully'))
+            .catch(e => console.error('Video play error:', e));
+        };
+      } else {
+        console.error('Video ref not available when trying to set stream');
       }
 
       const videoTrack = newStream.getVideoTracks()[0];
