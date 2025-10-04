@@ -401,39 +401,43 @@ const Index = () => {
         <ZoomControls onZoomChange={handleZoomChange} />
       </div>
 
-      {/* Control panel - collapsible */}
+      {/* Control panel - Mobile optimized with full screen overlay */}
       {showControls && (
-        <div className="absolute left-4 top-20 bottom-32 w-80 animate-slide-up z-40 space-y-4">
-          <ControlPanel 
-            currentMode={currentMode}
-            onModeChange={setCurrentMode}
-          />
-          
-          {/* Storage Selector */}
-          <div className="bg-cinema-surface p-4 rounded-lg">
-            <StorageSelector
-              locations={storage.locations}
-              selectedLocation={storage.selectedLocation}
-              onLocationChange={storage.setSelectedLocation}
-            />
+        <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:absolute lg:left-4 lg:top-20 lg:bottom-32 lg:w-80 lg:bg-transparent lg:backdrop-blur-none">
+          <div className="h-full w-full lg:w-auto overflow-auto p-4 lg:p-0">
+            <div className="max-w-md mx-auto lg:max-w-none space-y-4">
+              <ControlPanel 
+                currentMode={currentMode}
+                onModeChange={setCurrentMode}
+              />
+              
+              {/* Storage Selector */}
+              <div className="bg-cinema-surface p-4 rounded-lg">
+                <StorageSelector
+                  locations={storage.locations}
+                  selectedLocation={storage.selectedLocation}
+                  onLocationChange={storage.setSelectedLocation}
+                />
+              </div>
+
+              {/* Video Settings */}
+              <VideoSettings
+                videoCodec={camera.videoCodec}
+                frameRate={camera.frameRate}
+                onCodecChange={camera.updateVideoCodec}
+                onFrameRateChange={camera.updateFrameRate}
+              />
+
+              {/* Audio Settings */}
+              <AudioSettings
+                microphoneEnabled={audio.microphoneEnabled}
+                audioGain={audio.audioGain}
+                onMicrophoneToggle={audio.setMicrophoneEnabled}
+                onAudioGainChange={audio.setAudioGain}
+                onAudioDeviceChange={audio.switchAudioDevice}
+              />
+            </div>
           </div>
-
-          {/* Video Settings */}
-          <VideoSettings
-            videoCodec={camera.videoCodec}
-            frameRate={camera.frameRate}
-            onCodecChange={camera.updateVideoCodec}
-            onFrameRateChange={camera.updateFrameRate}
-          />
-
-          {/* Audio Settings */}
-          <AudioSettings
-            microphoneEnabled={audio.microphoneEnabled}
-            audioGain={audio.audioGain}
-            onMicrophoneToggle={audio.setMicrophoneEnabled}
-            onAudioGainChange={audio.setAudioGain}
-            onAudioDeviceChange={audio.switchAudioDevice}
-          />
         </div>
       )}
 

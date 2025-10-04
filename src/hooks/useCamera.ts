@@ -64,28 +64,52 @@ export const useCamera = () => {
 
   const initializeCamera = async (deviceId?: string) => {
     try {
+      // Stop existing stream
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
 
-      const constraints: MediaStreamConstraints = {
+      // Request camera permissions first
+      await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      
+      // Get available devices after permission granted
+      const availableDevices = await getCameraDevices();
+      
+      // Fallback constraints for better mobile compatibility
+      const baseConstraints = {
         video: deviceId 
           ? { 
               deviceId: { exact: deviceId },
-              width: { ideal: 3840 },
-              height: { ideal: 2160 },
-              frameRate: { ideal: 60 }
+              width: { min: 1280, ideal: 1920, max: 3840 },
+              height: { min: 720, ideal: 1080, max: 2160 },
+              frameRate: { min: 24, ideal: 30, max: 60 }
             }
           : { 
-              facingMode: 'environment',
-              width: { ideal: 3840 },
-              height: { ideal: 2160 },
-              frameRate: { ideal: 60 }
+              facingMode: { ideal: 'environment' },
+              width: { min: 1280, ideal: 1920, max: 3840 },
+              height: { min: 720, ideal: 1080, max: 2160 },
+              frameRate: { min: 24, ideal: 30, max: 60 }
             },
         audio: false
       };
 
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      let newStream: MediaStream | null = null;
+      
+      try {
+        // Try with ideal constraints
+        newStream = await navigator.mediaDevices.getUserMedia(baseConstraints);
+      } catch (err) {
+        console.warn('Failed with ideal constraints, trying basic constraints:', err);
+        // Fallback to basic constraints
+        const basicConstraints = {
+          video: deviceId 
+            ? { deviceId: { exact: deviceId } }
+            : { facingMode: 'environment' },
+          audio: false
+        };
+        newStream = await navigator.mediaDevices.getUserMedia(basicConstraints);
+      }
+
       setStream(newStream);
 
       if (videoRef.current) {
@@ -93,18 +117,30 @@ export const useCamera = () => {
       }
 
       const videoTrack = newStream.getVideoTracks()[0];
-      const availableDevices = await getCameraDevices();
-      const device = availableDevices.find(d => d.deviceId === videoTrack.getSettings().deviceId);
+      const settings = videoTrack.getSettings();
+      console.log('Camera initialized with settings:', settings);
+      
+      const device = availableDevices.find(d => d.deviceId === settings.deviceId);
       if (device) {
         setCurrentDevice(device);
+      } else if (availableDevices.length > 0) {
+        setCurrentDevice(availableDevices[0]);
       }
 
       return newStream;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initializing camera:', error);
+      const errorMsg = error.name === 'NotAllowedError' 
+        ? 'Permissions caméra refusées. Activez-les dans les paramètres.'
+        : error.name === 'NotFoundError'
+        ? 'Aucune caméra détectée sur cet appareil.'
+        : error.name === 'NotReadableError'
+        ? 'Caméra déjà utilisée par une autre application.'
+        : "Impossible d'initialiser la caméra";
+        
       toast({
-        title: "Erreur",
-        description: "Impossible d'initialiser la caméra",
+        title: "Erreur caméra",
+        description: errorMsg,
         variant: "destructive"
       });
       return null;
