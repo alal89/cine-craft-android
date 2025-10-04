@@ -36,6 +36,10 @@ const Index = () => {
         console.log('Initializing camera from Index component...');
         const stream = await camera.initialize();
         
+        console.log('Stream received:', stream);
+        console.log('Video tracks:', stream?.getVideoTracks());
+        console.log('VideoRef current:', camera.videoRef.current);
+        
         if (stream) {
           // Camera initialized successfully, devices should be loaded
           console.log('Camera initialized, devices:', camera.devices);
@@ -52,6 +56,13 @@ const Index = () => {
               description: "Caméra active",
             });
           }
+        } else {
+          console.error('No stream returned from camera.initialize()');
+          toast({
+            title: "Erreur",
+            description: "Pas de flux vidéo disponible",
+            variant: "destructive" as any,
+          });
         }
       } catch (error: any) {
         console.error('Camera init failed:', error);
@@ -412,9 +423,21 @@ const Index = () => {
 
       {/* Control panel - Mobile optimized with full screen overlay */}
       {showControls && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md lg:absolute lg:left-4 lg:top-20 lg:bottom-32 lg:w-80 lg:bg-transparent lg:backdrop-blur-none">
-          <div className="h-full w-full lg:w-auto overflow-y-auto p-4 lg:p-0 pt-16 lg:pt-0">
-            <div className="max-w-md mx-auto lg:max-w-none space-y-4 pb-8">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/95 backdrop-blur-md lg:absolute lg:left-4 lg:top-20 lg:bottom-32 lg:w-80 lg:bg-transparent lg:backdrop-blur-none lg:block">
+          {/* Close button for mobile */}
+          <div className="absolute top-4 right-4 lg:hidden z-50">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowControls(false)}
+              className="bg-cinema-surface-elevated"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          
+          <div className="h-full w-full max-w-md lg:max-w-none lg:w-auto overflow-y-auto p-4 lg:p-0 pt-16 lg:pt-0">
+            <div className="space-y-4 pb-8">
               <ControlPanel 
                 currentMode={currentMode}
                 onModeChange={setCurrentMode}

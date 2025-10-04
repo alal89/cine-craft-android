@@ -114,6 +114,8 @@ export const useCamera = () => {
 
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
+        // Force video to play
+        videoRef.current.play().catch(e => console.warn('Video play error:', e));
       }
 
       const videoTrack = newStream.getVideoTracks()[0];
