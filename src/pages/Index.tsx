@@ -29,36 +29,50 @@ const Index = () => {
   const storage = useStorage();
   const audio = useAudio();
 
-  // Initialize camera after video element is mounted
+  // Initialize camera on mount
   useEffect(() => {
+    let mounted = true;
+    
     const initCamera = async () => {
+      // Small delay to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      if (!mounted) return;
+      
       try {
-        console.log('Starting camera initialization...');
+        console.log('🎥 Initializing camera...');
         const stream = await camera.initialize();
         
+        if (!mounted) return;
+        
         if (stream && stream.active) {
-          console.log('Camera stream active');
+          console.log('✅ Camera stream active:', stream.id);
           const deviceCount = camera.devices?.length || 0;
           
           toast({
-            title: "Caméra initialisée",
-            description: deviceCount > 0 ? `${deviceCount} objectif(s) détecté(s)` : "Caméra active",
+            title: "Caméra prête",
+            description: deviceCount > 0 ? `${deviceCount} objectif(s)` : "Caméra active",
           });
+        } else {
+          console.error('❌ Stream inactive or null');
         }
       } catch (error: any) {
-        console.error('Camera init failed:', error);
-        toast({
-          title: "Erreur caméra",
-          description: error.message || "Impossible d'initialiser la caméra",
-          variant: "destructive" as any,
-        });
+        console.error('❌ Camera init failed:', error);
+        if (mounted) {
+          toast({
+            title: "Erreur caméra",
+            description: error.message || "Vérifiez les permissions",
+            variant: "destructive" as any,
+          });
+        }
       }
     };
     
-    // Wait for next frame to ensure video element is mounted
-    requestAnimationFrame(() => {
-      initCamera();
-    });
+    initCamera();
+    
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleCapture = async () => {
@@ -203,26 +217,26 @@ const Index = () => {
       <div className="flex-1 relative">
         <div className="absolute inset-0">
           <div className="w-full h-full bg-black overflow-hidden rounded-lg relative">
-            {camera.stream ? (
-              <video
-                ref={camera.videoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover transition-transform duration-300"
-                style={{
-                  transform: `scale(${zoom})`,
-                  backgroundColor: 'black'
-                }}
-              />
-            ) : (
-              <div className="w-full h-full bg-cinema-surface flex items-center justify-center">
+            <video
+              ref={camera.videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover transition-transform duration-300"
+              style={{
+                transform: `scale(${zoom})`,
+                backgroundColor: 'black'
+              }}
+            />
+            
+            {!camera.stream && (
+              <div className="absolute inset-0 bg-cinema-surface flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-cinema-primary/20 flex items-center justify-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-cinema-primary/20 flex items-center justify-center animate-pulse">
                     <span className="text-2xl">📸</span>
                   </div>
-                  <p className="text-cinema-text-secondary">Initialisation de la caméra...</p>
-                  <p className="text-cinema-text-muted text-sm mt-2">Vérifiez les permissions caméra</p>
+                  <p className="text-cinema-text-secondary">Initialisation...</p>
+                  <p className="text-cinema-text-muted text-sm mt-2">Autoriser l'accès caméra</p>
                 </div>
               </div>
             )}

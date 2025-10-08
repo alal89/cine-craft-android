@@ -112,23 +112,30 @@ export const useCamera = () => {
 
       setStream(newStream);
 
-      // Attach stream to video element if available
+      // Attach stream to video element
       if (videoRef.current) {
-        console.log('Attaching stream to video element');
-        const videoElement = videoRef.current;
-        videoElement.srcObject = newStream;
-        videoElement.muted = true;
-        videoElement.playsInline = true;
-        videoElement.autoplay = true;
+        console.log('📹 Attaching stream to video element');
+        const video = videoRef.current;
         
-        // Force play after a brief delay
-        setTimeout(() => {
-          videoElement.play()
-            .then(() => console.log('Video playing'))
-            .catch(e => console.error('Video play failed:', e));
-        }, 100);
+        video.srcObject = newStream;
+        video.muted = true;
+        video.playsInline = true;
+        
+        // Try to play immediately
+        video.play()
+          .then(() => console.log('▶️ Video playing'))
+          .catch(async (err) => {
+            console.warn('⚠️ First play attempt failed:', err.message);
+            // Wait for loadedmetadata event
+            await new Promise((resolve) => {
+              video.onloadedmetadata = resolve;
+            });
+            return video.play();
+          })
+          .then(() => console.log('▶️ Video playing after metadata'))
+          .catch(e => console.error('❌ Video play error:', e));
       } else {
-        console.warn('Video element not available yet');
+        console.error('❌ videoRef.current is null!');
       }
 
       const videoTrack = newStream.getVideoTracks()[0];
