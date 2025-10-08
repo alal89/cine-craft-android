@@ -32,46 +32,17 @@ const Index = () => {
   // Initialize camera after video element is mounted
   useEffect(() => {
     const initCamera = async () => {
-      // Wait a bit for the video element to be in the DOM
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      if (!camera.videoRef.current) {
-        console.error('Video element not found in DOM');
-        toast({
-          title: "Erreur",
-          description: "Élément vidéo non trouvé",
-          variant: "destructive" as any,
-        });
-        return;
-      }
-
       try {
-        console.log('Initializing camera...');
+        console.log('Starting camera initialization...');
         const stream = await camera.initialize();
         
-        console.log('Stream received:', stream);
-        console.log('Video tracks:', stream?.getVideoTracks());
-        
         if (stream && stream.active) {
+          console.log('Camera stream active');
           const deviceCount = camera.devices?.length || 0;
           
-          if (deviceCount > 0) {
-            toast({
-              title: "Caméra initialisée",
-              description: `${deviceCount} objectif(s) détecté(s)`,
-            });
-          } else {
-            toast({
-              title: "Caméra démarrée",
-              description: "Caméra active",
-            });
-          }
-        } else {
-          console.error('No active stream');
           toast({
-            title: "Erreur",
-            description: "Flux vidéo inactif",
-            variant: "destructive" as any,
+            title: "Caméra initialisée",
+            description: deviceCount > 0 ? `${deviceCount} objectif(s) détecté(s)` : "Caméra active",
           });
         }
       } catch (error: any) {
@@ -84,7 +55,10 @@ const Index = () => {
       }
     };
     
-    initCamera();
+    // Wait for next frame to ensure video element is mounted
+    requestAnimationFrame(() => {
+      initCamera();
+    });
   }, []);
 
   const handleCapture = async () => {
@@ -433,9 +407,9 @@ const Index = () => {
 
       {/* Control panel - Mobile optimized with full screen overlay */}
       {showControls && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/95 backdrop-blur-md lg:absolute lg:left-4 lg:top-20 lg:bottom-32 lg:w-80 lg:bg-transparent lg:backdrop-blur-none lg:block">
+        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md lg:absolute lg:left-4 lg:top-20 lg:bottom-32 lg:w-80 lg:bg-transparent lg:backdrop-blur-none">
           {/* Close button for mobile */}
-          <div className="absolute top-4 right-4 lg:hidden z-50">
+          <div className="absolute top-4 right-4 z-50">
             <Button
               variant="secondary"
               size="sm"
@@ -446,7 +420,7 @@ const Index = () => {
             </Button>
           </div>
           
-          <div className="h-full w-full max-w-md lg:max-w-none lg:w-auto overflow-y-auto p-4 lg:p-0 pt-16 lg:pt-0">
+          <div className="h-full w-full overflow-y-auto p-6 pt-16 lg:p-0 lg:pt-0">
             <div className="space-y-4 pb-8">
               <ControlPanel 
                 currentMode={currentMode}
