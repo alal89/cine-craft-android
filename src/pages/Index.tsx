@@ -421,18 +421,23 @@ const Index = () => {
 
       {/* Control panel - Mobile optimized with full screen overlay */}
       {showControls && (
-        <div className="fixed inset-0 z-50 bg-black/90 lg:absolute lg:left-4 lg:top-20 lg:bottom-32 lg:w-80 lg:bg-transparent">
-          {/* Close button for mobile */}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setShowControls(false)}
-            className="absolute top-4 right-4 z-50 bg-cinema-surface-elevated"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-          
-          <div className="h-full w-full overflow-y-auto p-4 pt-16 lg:p-0 lg:pt-0">
+        <>
+          {/* Mobile overlay */}
+          <div className="fixed inset-0 z-[100] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 lg:hidden">
+            {/* Close button */}
+            <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-gray-900/95 backdrop-blur-sm border-b border-white/10">
+              <h2 className="text-white text-lg font-semibold">Paramètres</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowControls(false)}
+                className="text-white hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            <div className="overflow-y-auto h-[calc(100vh-72px)] p-4 space-y-4">
             <div className="space-y-4 pb-8">
               <ControlPanel 
                 currentMode={currentMode}
@@ -464,9 +469,43 @@ const Index = () => {
                 onAudioGainChange={audio.setAudioGain}
                 onAudioDeviceChange={audio.switchAudioDevice}
               />
+              </div>
             </div>
           </div>
-        </div>
+          
+          {/* Desktop panel */}
+          <div className="hidden lg:block absolute left-4 top-20 bottom-32 w-80">
+            <div className="h-full overflow-y-auto space-y-4">
+              <ControlPanel 
+                currentMode={currentMode}
+                onModeChange={setCurrentMode}
+              />
+              
+              <div className="bg-cinema-surface-elevated border border-cinema-primary/20 p-4 rounded-lg">
+                <StorageSelector
+                  locations={storage.locations}
+                  selectedLocation={storage.selectedLocation}
+                  onLocationChange={storage.setSelectedLocation}
+                />
+              </div>
+
+              <VideoSettings
+                videoCodec={camera.videoCodec}
+                frameRate={camera.frameRate}
+                onCodecChange={camera.updateVideoCodec}
+                onFrameRateChange={camera.updateFrameRate}
+              />
+
+              <AudioSettings
+                microphoneEnabled={audio.microphoneEnabled}
+                audioGain={audio.audioGain}
+                onMicrophoneToggle={audio.setMicrophoneEnabled}
+                onAudioGainChange={audio.setAudioGain}
+                onAudioDeviceChange={audio.switchAudioDevice}
+              />
+            </div>
+          </div>
+        </>
       )}
 
       {/* Bottom capture controls */}
