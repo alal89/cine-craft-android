@@ -301,8 +301,9 @@ const Index = () => {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => {
-              console.log('Menu button clicked, current showControls:', showControls);
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('Menu clicked, showControls:', showControls);
               setShowControls(!showControls);
             }}
             className="bg-black/30 backdrop-blur-sm"
@@ -355,7 +356,10 @@ const Index = () => {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setShowControls(!showControls)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowControls(!showControls);
+              }}
               title={showControls ? "Fermer les paramètres" : "Ouvrir les paramètres"}
               className={`bg-black/30 backdrop-blur-sm ${showControls ? 'bg-cinema-primary/30' : ''}`}
             >
@@ -364,13 +368,10 @@ const Index = () => {
           </div>
         </div>
 
-        {showControls && (
-          <button aria-label="Fermer les paramètres" className="absolute inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setShowControls(false)} />
-        )}
 
-        {/* Side panel - lens selector, histogram and monitoring - ONLY show when controls are open */}
+        {/* Side panel - lens selector, histogram and monitoring - Desktop only */}
         {showControls && (
-          <div className="absolute right-4 top-20 bottom-32 w-56 space-y-4 z-40 animate-slide-up">
+          <div className="hidden lg:block absolute right-4 top-20 bottom-32 w-56 space-y-4 z-40 animate-slide-up">
             {/* Lens Selector */}
             <LensSelector
               devices={camera.devices}
