@@ -27,7 +27,7 @@ export const ControlPanel = ({ currentMode, onModeChange }: ControlPanelProps) =
   const [audioGain, setAudioGain] = useState([0]);
 
   return (
-    <div className="bg-cinema-surface rounded-lg flex flex-col h-auto lg:h-full">
+    <div className="bg-cinema-surface-elevated border border-cinema-primary/20 rounded-lg flex flex-col h-auto lg:h-full">
       <div className="p-4">
         <div className="space-y-6">
           {/* Mode Selector */}

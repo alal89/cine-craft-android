@@ -421,20 +421,18 @@ const Index = () => {
 
       {/* Control panel - Mobile optimized with full screen overlay */}
       {showControls && (
-        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md lg:absolute lg:left-4 lg:top-20 lg:bottom-32 lg:w-80 lg:bg-transparent lg:backdrop-blur-none">
+        <div className="fixed inset-0 z-50 bg-black/90 lg:absolute lg:left-4 lg:top-20 lg:bottom-32 lg:w-80 lg:bg-transparent">
           {/* Close button for mobile */}
-          <div className="absolute top-4 right-4 z-50">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowControls(false)}
-              className="bg-cinema-surface-elevated"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowControls(false)}
+            className="absolute top-4 right-4 z-50 bg-cinema-surface-elevated"
+          >
+            <X className="w-4 h-4" />
+          </Button>
           
-          <div className="h-full w-full overflow-y-auto p-6 pt-16 lg:p-0 lg:pt-0">
+          <div className="h-full w-full overflow-y-auto p-4 pt-16 lg:p-0 lg:pt-0">
             <div className="space-y-4 pb-8">
               <ControlPanel 
                 currentMode={currentMode}
@@ -442,7 +440,7 @@ const Index = () => {
               />
               
               {/* Storage Selector */}
-              <div className="bg-cinema-surface p-4 rounded-lg">
+              <div className="bg-cinema-surface-elevated border border-cinema-primary/20 p-4 rounded-lg">
                 <StorageSelector
                   locations={storage.locations}
                   selectedLocation={storage.selectedLocation}
