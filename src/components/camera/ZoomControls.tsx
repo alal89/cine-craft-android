@@ -5,10 +5,12 @@ import { Plus, Minus, ZoomIn } from 'lucide-react';
 
 interface ZoomControlsProps {
   onZoomChange: (zoom: number) => void;
+  zoomMode?: 'native' | 'canvas';
+  currentZoom?: number;
 }
 
-export const ZoomControls = ({ onZoomChange }: ZoomControlsProps) => {
-  const [zoom, setZoom] = useState([1]);
+export const ZoomControls = ({ onZoomChange, zoomMode, currentZoom }: ZoomControlsProps) => {
+  const [zoom, setZoom] = useState([currentZoom || 1]);
 
   const handleZoomChange = (newZoom: number[]) => {
     setZoom(newZoom);
@@ -59,9 +61,14 @@ export const ZoomControls = ({ onZoomChange }: ZoomControlsProps) => {
         {/* Zoom Level Display */}
         <button 
           onClick={resetZoom}
-          className="text-white text-sm font-mono bg-cinema-primary/20 px-2 py-1 rounded min-w-12 hover:bg-cinema-primary/30 transition-colors"
+          className="text-white text-sm font-mono bg-cinema-primary/20 px-2 py-1 rounded min-w-12 hover:bg-cinema-primary/30 transition-colors flex items-center space-x-1"
         >
-          {zoom[0].toFixed(1)}x
+          <span>{zoom[0].toFixed(1)}x</span>
+          {zoomMode && (
+            <span className="text-xs opacity-70">
+              {zoomMode === 'canvas' ? '🔍' : '📷'}
+            </span>
+          )}
         </button>
 
         {/* Zoom In Button */}

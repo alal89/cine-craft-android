@@ -221,8 +221,21 @@ const Index = () => {
   const handleZoomChange = async (newZoom: number) => {
     setZoom(newZoom);
     try {
-      // Use auto lens switching by default
       await camera.applyZoom(newZoom);
+      
+      // Update canvas size when using canvas zoom
+      if (camera.zoomMode === 'canvas' && camera.canvasRef.current && camera.videoRef.current) {
+        const canvas = camera.canvasRef.current;
+        const video = camera.videoRef.current;
+        
+        // Set canvas size to match video display size
+        const rect = video.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        
+        // Start canvas zoom
+        camera.startCanvasZoom();
+      }
     } catch (error) {
       console.error('Zoom change failed:', error);
     }
@@ -248,6 +261,17 @@ const Index = () => {
       <div className="flex-1 relative">
         <div className="absolute inset-0">
           <div className="w-full h-full bg-black overflow-hidden rounded-lg relative">
+            {/* Canvas for zoom recording - hidden but used for capture */}
+            <canvas
+              ref={camera.canvasRef}
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{
+                display: camera.zoomMode === 'canvas' ? 'block' : 'none',
+                backgroundColor: 'black'
+              }}
+            />
+            
+            {/* Video element - visible for native zoom or when canvas is not used */}
             <video
               ref={camera.videoRef}
               autoPlay
@@ -255,8 +279,9 @@ const Index = () => {
               playsInline
               className="w-full h-full object-cover transition-transform duration-300"
               style={{
-                transform: `scale(${zoom})`,
-                backgroundColor: 'black'
+                transform: camera.zoomMode === 'native' ? `scale(${zoom})` : 'none',
+                backgroundColor: 'black',
+                display: camera.zoomMode === 'canvas' ? 'none' : 'block'
               }}
             />
             
@@ -298,6 +323,24 @@ const Index = () => {
                 {currentMode}
               </span>
             </div>
+
+            {/* Zoom indicator */}
+            {zoom > 1 && (
+              <div className="absolute top-16 right-4 bg-black/50 px-3 py-1 rounded-full">
+                <span className="text-white text-sm font-medium">
+                  {camera.zoomMode === 'canvas' ? '🔍' : '📷'} {zoom.toFixed(1)}x
+                </span>
+              </div>
+            )}
+
+            {/* Zoom mode indicator during recording */}
+            {isRecording && camera.zoomMode === 'canvas' && (
+              <div className="absolute top-20 right-4 bg-red-500/80 px-3 py-1 rounded-full">
+                <span className="text-white text-xs font-medium">
+                  Zoom Canvas Actif
+                </span>
+              </div>
+            )}
 
             {/* Composition grid overlay */}
             {showGrid && (
@@ -476,7 +519,11 @@ const Index = () => {
         )}
 
         {/* Zoom controls */}
-        <ZoomControls onZoomChange={handleZoomChange} />
+        <ZoomControls 
+          onZoomChange={handleZoomChange} 
+          zoomMode={camera.zoomMode}
+          currentZoom={camera.currentZoom}
+        />
       </div>
 
       {/* Control panel - Desktop only */}

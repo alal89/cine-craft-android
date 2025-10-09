@@ -21,10 +21,13 @@ export const useCamera = () => {
   const [currentZoom, setCurrentZoom] = useState(1);
   const [videoCodec, setVideoCodec] = useState('vp9');
   const [frameRate, setFrameRate] = useState(60);
+  const [zoomMode, setZoomMode] = useState<'native' | 'canvas'>('native');
   
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const animationFrameRef = useRef<number | null>(null);
   const { toast } = useToast();
 
   const getCameraDevices = async () => {
@@ -212,24 +215,98 @@ export const useCamera = () => {
       const videoTrack = stream.getVideoTracks()[0];
       const capabilities = videoTrack.getCapabilities() as any;
 
-      if (capabilities.zoom) {
+      if (capabilities.zoom && zoomLevel >= 1 && zoomLevel <= (capabilities.zoom.max || 3)) {
+        // Use native zoom when available and within limits
         await videoTrack.applyConstraints({
           advanced: [{ zoom: zoomLevel } as any]
         });
         setCurrentZoom(zoomLevel);
+        setZoomMode('native');
         
         if (isRecording) {
-          console.log('Zoom applied during recording:', zoomLevel);
+          console.log('Native zoom applied during recording:', zoomLevel);
         }
       } else {
-        // Auto lens switch based on zoom
-        await switchToLensForZoom(zoomLevel);
-        setCurrentZoom(zoomLevel);
+        // Fallback to canvas zoom or lens switching
+        if (zoomLevel > 1) {
+          setZoomMode('canvas');
+          setCurrentZoom(zoomLevel);
+          startCanvasZoom();
+        } else {
+          // Try lens switching for zoom levels
+          await switchToLensForZoom(zoomLevel);
+          setCurrentZoom(zoomLevel);
+          setZoomMode('native');
+        }
       }
     } catch (error) {
       console.error('Error applying zoom:', error);
+      // Fallback to canvas zoom
+      setZoomMode('canvas');
+      setCurrentZoom(zoomLevel);
+      startCanvasZoom();
     }
   };
+
+  const startCanvasZoom = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const drawFrame = () => {
+      if (!video || !canvas || !ctx) return;
+
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      
+      if (videoWidth === 0 || videoHeight === 0) {
+        animationFrameRef.current = requestAnimationFrame(drawFrame);
+        return;
+      }
+
+      // Calculate zoom area
+      const zoom = currentZoom;
+      const centerX = videoWidth / 2;
+      const centerY = videoHeight / 2;
+      const scaledWidth = videoWidth / zoom;
+      const scaledHeight = videoHeight / zoom;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw zoomed video
+      ctx.drawImage(
+        video,
+        centerX - scaledWidth / 2, // source x
+        centerY - scaledHeight / 2, // source y
+        scaledWidth, // source width
+        scaledHeight, // source height
+        0, // destination x
+        0, // destination y
+        canvas.width, // destination width
+        canvas.height // destination height
+      );
+
+      animationFrameRef.current = requestAnimationFrame(drawFrame);
+    };
+
+    // Stop previous animation
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    drawFrame();
+  }, [currentZoom]);
+
+  const stopCanvasZoom = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  }, []);
 
   const toggleFlash = async () => {
     if (!stream) return;
@@ -295,28 +372,47 @@ export const useCamera = () => {
     try {
       recordedChunksRef.current = [];
       
+      let recordingStream: MediaStream;
+      
+      if (zoomMode === 'canvas' && canvasRef.current) {
+        // Use canvas stream for zoom recording
+        const canvas = canvasRef.current;
+        recordingStream = canvas.captureStream(30); // 30 FPS
+        
+        // Start canvas zoom if not already running
+        startCanvasZoom();
+        
+        console.log('Recording with canvas zoom:', currentZoom);
+      } else {
+        // Use original stream with native zoom
+        recordingStream = stream;
+        console.log('Recording with native zoom:', currentZoom);
+      }
+      
       // Combine video and audio streams
-      let combinedStream = stream;
+      let combinedStream = recordingStream;
       if (audioStream) {
         combinedStream = new MediaStream([
-          ...stream.getVideoTracks(),
+          ...recordingStream.getVideoTracks(),
           ...audioStream.getAudioTracks()
         ]);
       }
 
-      // Apply Hasselblad-style video processing
-      const videoTrack = combinedStream.getVideoTracks()[0];
-      await videoTrack.applyConstraints({
-        advanced: [{
-          whiteBalanceMode: 'manual',
-          colorTemperature: 5600,
-          exposureMode: 'manual',
-          brightness: 128,
-          contrast: 128,
-          saturation: 140, // Enhanced saturation for vibrant colors
-          sharpness: 160,  // Enhanced sharpness
-        } as any]
-      });
+      // Apply Hasselblad-style video processing only for native zoom
+      if (zoomMode === 'native') {
+        const videoTrack = combinedStream.getVideoTracks()[0];
+        await videoTrack.applyConstraints({
+          advanced: [{
+            whiteBalanceMode: 'manual',
+            colorTemperature: 5600,
+            exposureMode: 'manual',
+            brightness: 128,
+            contrast: 128,
+            saturation: 140, // Enhanced saturation for vibrant colors
+            sharpness: 160,  // Enhanced sharpness
+          } as any]
+        });
+      }
 
       const mimeType = 'video/webm;codecs=vp9';
       const mediaRecorder = new MediaRecorder(combinedStream, {
@@ -334,9 +430,10 @@ export const useCamera = () => {
       mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
 
+      const zoomInfo = zoomMode === 'canvas' ? ` (Zoom Canvas ${currentZoom}x)` : ` (Zoom Natif ${currentZoom}x)`;
       toast({
         title: "Enregistrement démarré",
-        description: "Traitement vidéo Hasselblad activé",
+        description: `Traitement vidéo Hasselblad activé${zoomInfo}`,
       });
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -346,7 +443,7 @@ export const useCamera = () => {
         variant: "destructive"
       });
     }
-  }, [stream, toast]);
+  }, [stream, zoomMode, currentZoom, startCanvasZoom, toast]);
 
   const stopVideoRecording = useCallback(async (): Promise<Blob | null> => {
     if (!mediaRecorderRef.current || !isRecording) {
@@ -363,6 +460,12 @@ export const useCamera = () => {
           recordedChunksRef.current = [];
           setIsRecording(false);
           mediaRecorderRef.current = null;
+          
+          // Stop canvas zoom if it was running
+          if (zoomMode === 'canvas') {
+            stopCanvasZoom();
+          }
+          
           resolve(blob);
         };
 
@@ -373,9 +476,15 @@ export const useCamera = () => {
       recordedChunksRef.current = [];
       setIsRecording(false);
       mediaRecorderRef.current = null;
+      
+      // Stop canvas zoom on error
+      if (zoomMode === 'canvas') {
+        stopCanvasZoom();
+      }
+      
       return null;
     }
-  }, [isRecording]);
+  }, [isRecording, zoomMode, stopCanvasZoom]);
 
   const updateVideoCodec = (codec: string) => {
     setVideoCodec(codec);
@@ -392,9 +501,11 @@ export const useCamera = () => {
     isRecording,
     flashEnabled,
     currentZoom,
+    zoomMode,
     videoCodec,
     frameRate,
     videoRef,
+    canvasRef,
     initialize: initializeCamera,
     initializeCamera,
     switchCamera,
@@ -408,6 +519,8 @@ export const useCamera = () => {
     stopVideoRecording,
     getCameraDevices,
     updateVideoCodec,
-    updateFrameRate
+    updateFrameRate,
+    startCanvasZoom,
+    stopCanvasZoom
   };
 };
