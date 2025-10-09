@@ -9,6 +9,7 @@ import { LensSelector } from '@/components/camera/LensSelector';
 import { StorageSelector } from '@/components/camera/StorageSelector';
 import VideoSettings from '@/components/camera/VideoSettings';
 import { AudioSettings } from '@/components/camera/AudioSettings';
+import { MobileSettingsPanel } from '@/components/camera/MobileSettingsPanel';
 import { Button } from '@/components/ui/button';
 import { Settings2, Menu, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -199,68 +200,16 @@ const Index = () => {
   };
   return (
     <>
-      {/* Mobile settings panel - OUTSIDE main container to avoid z-index issues */}
-      {showControls && (
-        <div 
-          className="fixed inset-0 z-[9999] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 lg:hidden"
-          onClick={(e) => {
-            // Prevent clicks inside the panel from closing it
-            e.stopPropagation();
-          }}
-        >
-          {/* Close button */}
-          <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-gray-900/95 backdrop-blur-sm border-b border-white/10">
-            <h2 className="text-white text-lg font-semibold">Paramètres</h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                console.log('❌ Closing settings panel');
-                setShowControls(false);
-              }}
-              className="text-white hover:bg-white/10"
-            >
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-          
-          <div className="overflow-y-auto h-[calc(100vh-72px)] p-4 space-y-4">
-            <div className="space-y-4 pb-8">
-              <ControlPanel 
-                currentMode={currentMode}
-                onModeChange={setCurrentMode}
-              />
-              
-              {/* Storage Selector */}
-              <div className="bg-cinema-surface-elevated border border-cinema-primary/20 p-4 rounded-lg">
-                <StorageSelector
-                  locations={storage.locations}
-                  selectedLocation={storage.selectedLocation}
-                  onLocationChange={storage.setSelectedLocation}
-                />
-              </div>
-
-              {/* Video Settings */}
-              <VideoSettings
-                videoCodec={camera.videoCodec}
-                frameRate={camera.frameRate}
-                onCodecChange={camera.updateVideoCodec}
-                onFrameRateChange={camera.updateFrameRate}
-              />
-
-              {/* Audio Settings */}
-              <AudioSettings
-                microphoneEnabled={audio.microphoneEnabled}
-                audioGain={audio.audioGain}
-                onMicrophoneToggle={audio.setMicrophoneEnabled}
-                onAudioGainChange={audio.setAudioGain}
-                onAudioDeviceChange={audio.switchAudioDevice}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Mobile settings panel - Isolated component */}
+      <MobileSettingsPanel
+        isOpen={showControls}
+        onClose={() => setShowControls(false)}
+        currentMode={currentMode}
+        onModeChange={setCurrentMode}
+        storage={storage}
+        camera={camera}
+        audio={audio}
+      />
 
       <div className="min-h-screen bg-cinema-background flex flex-col relative overflow-hidden">
         {/* Status bar */}
