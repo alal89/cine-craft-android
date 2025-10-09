@@ -37,28 +37,21 @@ export const MobileSettingsPanel = ({
     console.log('🖱️ Backdrop clicked');
     e.preventDefault();
     e.stopPropagation();
+    // Only close if clicking directly on backdrop, not children
     if (e.target === e.currentTarget) {
       console.log('🚪 Closing from backdrop');
       onClose();
     }
   };
 
-  const handlePanelClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handlePanelTouch = (e: React.TouchEvent) => {
-    e.stopPropagation();
-  };
-
   return (
-    <div
+    <div 
       className="fixed inset-0 z-[9999] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 lg:hidden"
-      onClick={handlePanelClick}
-      onTouchStart={handlePanelTouch}
-      onTouchEnd={handlePanelTouch}
-      onTouchMove={handlePanelTouch}
+      onClick={handleBackdropClick}
+      onTouchStart={(e) => {
+        console.log('👆 Touch start on panel');
+        e.stopPropagation();
+      }}
     >
       {/* Close button */}
       <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-gray-900/95 backdrop-blur-sm border-b border-white/10">
@@ -77,11 +70,7 @@ export const MobileSettingsPanel = ({
         </Button>
       </div>
       
-      <div
-        className="overflow-y-auto h-[calc(100vh-72px)] p-4 space-y-4"
-        onClick={handlePanelClick}
-        onTouchStart={handlePanelTouch}
-      >
+      <div className="overflow-y-auto h-[calc(100vh-72px)] p-4 space-y-4">
         <div className="space-y-4 pb-8">
           <ControlPanel 
             currentMode={currentMode}
