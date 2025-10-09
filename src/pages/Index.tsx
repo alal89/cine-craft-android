@@ -193,9 +193,66 @@ const Index = () => {
     }
   };
   return (
-    <div className="min-h-screen bg-cinema-background flex flex-col relative overflow-hidden">
-      {/* Status bar */}
-      <StatusDisplay />
+    <>
+      {/* Mobile settings panel - OUTSIDE main container to avoid z-index issues */}
+      {showControls && (
+        <div className="fixed inset-0 z-[9999] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 lg:hidden">
+          {/* Close button */}
+          <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-gray-900/95 backdrop-blur-sm border-b border-white/10">
+            <h2 className="text-white text-lg font-semibold">Paramètres</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowControls(false);
+              }}
+              className="text-white hover:bg-white/10"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+          
+          <div className="overflow-y-auto h-[calc(100vh-72px)] p-4 space-y-4">
+            <div className="space-y-4 pb-8">
+              <ControlPanel 
+                currentMode={currentMode}
+                onModeChange={setCurrentMode}
+              />
+              
+              {/* Storage Selector */}
+              <div className="bg-cinema-surface-elevated border border-cinema-primary/20 p-4 rounded-lg">
+                <StorageSelector
+                  locations={storage.locations}
+                  selectedLocation={storage.selectedLocation}
+                  onLocationChange={storage.setSelectedLocation}
+                />
+              </div>
+
+              {/* Video Settings */}
+              <VideoSettings
+                videoCodec={camera.videoCodec}
+                frameRate={camera.frameRate}
+                onCodecChange={camera.updateVideoCodec}
+                onFrameRateChange={camera.updateFrameRate}
+              />
+
+              {/* Audio Settings */}
+              <AudioSettings
+                microphoneEnabled={audio.microphoneEnabled}
+                audioGain={audio.audioGain}
+                onMicrophoneToggle={audio.setMicrophoneEnabled}
+                onAudioGainChange={audio.setAudioGain}
+                onAudioDeviceChange={audio.switchAudioDevice}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="min-h-screen bg-cinema-background flex flex-col relative overflow-hidden">
+        {/* Status bar */}
+        <StatusDisplay />
 
       {/* Main camera view */}
       <div className="flex-1 relative">
@@ -407,61 +464,9 @@ const Index = () => {
         <ZoomControls onZoomChange={handleZoomChange} />
       </div>
 
-      {/* Control panel - Mobile optimized with full screen overlay */}
+      {/* Control panel - Desktop only */}
       {showControls && (
         <>
-          {/* Mobile overlay */}
-          <div className="fixed inset-0 z-[100] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 lg:hidden">
-            {/* Close button */}
-            <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-gray-900/95 backdrop-blur-sm border-b border-white/10">
-              <h2 className="text-white text-lg font-semibold">Paramètres</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowControls(false)}
-                className="text-white hover:bg-white/10"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-            
-            <div className="overflow-y-auto h-[calc(100vh-72px)] p-4 space-y-4">
-            <div className="space-y-4 pb-8">
-              <ControlPanel 
-                currentMode={currentMode}
-                onModeChange={setCurrentMode}
-              />
-              
-              {/* Storage Selector */}
-              <div className="bg-cinema-surface-elevated border border-cinema-primary/20 p-4 rounded-lg">
-                <StorageSelector
-                  locations={storage.locations}
-                  selectedLocation={storage.selectedLocation}
-                  onLocationChange={storage.setSelectedLocation}
-                />
-              </div>
-
-              {/* Video Settings */}
-              <VideoSettings
-                videoCodec={camera.videoCodec}
-                frameRate={camera.frameRate}
-                onCodecChange={camera.updateVideoCodec}
-                onFrameRateChange={camera.updateFrameRate}
-              />
-
-              {/* Audio Settings */}
-              <AudioSettings
-                microphoneEnabled={audio.microphoneEnabled}
-                audioGain={audio.audioGain}
-                onMicrophoneToggle={audio.setMicrophoneEnabled}
-                onAudioGainChange={audio.setAudioGain}
-                onAudioDeviceChange={audio.switchAudioDevice}
-              />
-              </div>
-            </div>
-          </div>
-          
-          {/* Desktop panel */}
           <div className="hidden lg:block absolute left-4 top-20 bottom-32 w-80">
             <div className="h-full overflow-y-auto space-y-4">
               <ControlPanel 
@@ -496,18 +501,19 @@ const Index = () => {
         </>
       )}
 
-      {/* Bottom capture controls */}
-      <div className="relative z-20">
-        <CaptureControls
-          currentMode={currentMode}
-          isRecording={isRecording}
-          onCapture={handleCapture}
-          onStartRecording={handleStartRecording}
-          onStopRecording={handleStopRecording}
-          onSwitchCamera={handleSwitchCamera}
-        />
+        {/* Bottom capture controls */}
+        <div className="relative z-20">
+          <CaptureControls
+            currentMode={currentMode}
+            isRecording={isRecording}
+            onCapture={handleCapture}
+            onStartRecording={handleStartRecording}
+            onStopRecording={handleStopRecording}
+            onSwitchCamera={handleSwitchCamera}
+          />
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
