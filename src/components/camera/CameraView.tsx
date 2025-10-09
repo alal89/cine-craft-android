@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect } from 'react';
+import React, { memo, useCallback, useEffect, useMemo } from 'react';
 import { useCameraContext } from '@/contexts/CameraContext';
 import { cameraLogger } from '@/utils/logger';
 

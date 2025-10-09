@@ -118,7 +118,7 @@ export const useCamera = () => {
 
       // Attach stream to video element
       if (videoRef.current) {
-        console.log('📹 Attaching stream to video element');
+        cameraLogger.init('Attaching stream to video element');
         const video = videoRef.current;
         
         video.srcObject = newStream;
@@ -127,19 +127,19 @@ export const useCamera = () => {
         
         // Try to play immediately
         video.play()
-          .then(() => console.log('▶️ Video playing'))
+          .then(() => cameraLogger.success('Video playing'))
           .catch(async (err) => {
-            console.warn('⚠️ First play attempt failed:', err.message);
+            cameraLogger.warn('First play attempt failed:', err.message);
             // Wait for loadedmetadata event
             await new Promise((resolve) => {
               video.onloadedmetadata = resolve;
             });
             return video.play();
           })
-          .then(() => console.log('▶️ Video playing after metadata'))
-          .catch(e => console.error('❌ Video play error:', e));
+          .then(() => cameraLogger.success('Video playing after metadata'))
+          .catch(e => cameraLogger.error('Video play error:', e));
       } else {
-        console.error('❌ videoRef.current is null!');
+        cameraLogger.error('videoRef.current is null!');
       }
 
       const videoTrack = newStream.getVideoTracks()[0];
@@ -383,11 +383,11 @@ export const useCamera = () => {
         // Start canvas zoom if not already running
         startCanvasZoom();
         
-        console.log('Recording with canvas zoom:', currentZoom);
+        cameraLogger.recording('Recording with canvas zoom:', currentZoom);
       } else {
         // Use original stream with native zoom
         recordingStream = stream;
-        console.log('Recording with native zoom:', currentZoom);
+        cameraLogger.recording('Recording with native zoom:', currentZoom);
       }
       
       // Combine video and audio streams

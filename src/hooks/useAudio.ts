@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { cameraLogger } from '@/utils/logger';
 
 export interface AudioDevice {
   deviceId: string;
@@ -41,7 +42,7 @@ export const useAudio = () => {
         };
       });
 
-      console.log('Audio devices found:', mappedDevices);
+      cameraLogger.debug('Audio devices found:', mappedDevices);
       setAudioDevices(mappedDevices);
       
       return mappedDevices;
