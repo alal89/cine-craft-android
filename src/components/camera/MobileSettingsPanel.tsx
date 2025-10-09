@@ -24,36 +24,16 @@ export const MobileSettingsPanel = ({
   camera,
   audio
 }: MobileSettingsPanelProps) => {
-  console.log('🎛️ MobileSettingsPanel render - isOpen:', isOpen);
-  
   if (!isOpen) {
-    console.log('❌ Panel not open, returning null');
     return null;
   }
 
-  console.log('✅ Panel is open, rendering...');
-
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    console.log('🖱️ Backdrop clicked');
-    e.preventDefault();
-    e.stopPropagation();
-    // Only close if clicking directly on backdrop, not children
-    if (e.target === e.currentTarget) {
-      console.log('🚪 Closing from backdrop');
-      onClose();
-    }
-  };
-
   return (
-    <div 
+    <div
       className="fixed inset-0 z-[9999] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 lg:hidden"
-      onClick={handleBackdropClick}
-      onTouchStart={(e) => {
-        console.log('👆 Touch start on panel');
-        e.stopPropagation();
-      }}
+      onClick={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
     >
-      {/* Close button */}
       <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-gray-900/95 backdrop-blur-sm border-b border-white/10">
         <h2 className="text-white text-lg font-semibold">Paramètres</h2>
         <Button
@@ -69,15 +49,17 @@ export const MobileSettingsPanel = ({
           <X className="w-5 h-5" />
         </Button>
       </div>
-      
-      <div className="overflow-y-auto h-[calc(100vh-72px)] p-4 space-y-4">
+
+      <div
+        className="overflow-y-auto h-[calc(100vh-72px)] p-4 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="space-y-4 pb-8">
-          <ControlPanel 
+          <ControlPanel
             currentMode={currentMode}
             onModeChange={onModeChange}
           />
-          
-          {/* Storage Selector */}
+
           <div className="bg-cinema-surface-elevated border border-cinema-primary/20 p-4 rounded-lg">
             <StorageSelector
               locations={storage.locations}
@@ -86,7 +68,6 @@ export const MobileSettingsPanel = ({
             />
           </div>
 
-          {/* Video Settings */}
           <VideoSettings
             videoCodec={camera.videoCodec}
             frameRate={camera.frameRate}
@@ -94,7 +75,6 @@ export const MobileSettingsPanel = ({
             onFrameRateChange={camera.updateFrameRate}
           />
 
-          {/* Audio Settings */}
           <AudioSettings
             microphoneEnabled={audio.microphoneEnabled}
             audioGain={audio.audioGain}
