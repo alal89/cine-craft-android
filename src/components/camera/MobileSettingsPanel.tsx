@@ -24,12 +24,34 @@ export const MobileSettingsPanel = ({
   camera,
   audio
 }: MobileSettingsPanelProps) => {
-  if (!isOpen) return null;
+  console.log('🎛️ MobileSettingsPanel render - isOpen:', isOpen);
+  
+  if (!isOpen) {
+    console.log('❌ Panel not open, returning null');
+    return null;
+  }
+
+  console.log('✅ Panel is open, rendering...');
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    console.log('🖱️ Backdrop clicked');
+    e.preventDefault();
+    e.stopPropagation();
+    // Only close if clicking directly on backdrop, not children
+    if (e.target === e.currentTarget) {
+      console.log('🚪 Closing from backdrop');
+      onClose();
+    }
+  };
 
   return (
     <div 
       className="fixed inset-0 z-[9999] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 lg:hidden"
-      onClick={(e) => e.stopPropagation()}
+      onClick={handleBackdropClick}
+      onTouchStart={(e) => {
+        console.log('👆 Touch start on panel');
+        e.stopPropagation();
+      }}
     >
       {/* Close button */}
       <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-gray-900/95 backdrop-blur-sm border-b border-white/10">

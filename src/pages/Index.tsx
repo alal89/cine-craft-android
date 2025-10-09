@@ -27,8 +27,13 @@ const Index = () => {
   
   // Debug: log when showControls changes
   useEffect(() => {
-    console.log('🎛️ showControls changed to:', showControls);
+    console.log('🎛️ Index - showControls changed to:', showControls);
   }, [showControls]);
+
+  // Debug: log all re-renders
+  useEffect(() => {
+    console.log('🔄 Index component re-rendered');
+  });
   
   // New hooks for advanced camera and storage management
   const camera = useCamera();
@@ -309,9 +314,15 @@ const Index = () => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              const newValue = !showControls;
-              console.log('🔘 Menu button clicked! Changing showControls from', showControls, 'to', newValue);
-              setShowControls(newValue);
+              console.log('🔘 Menu button clicked! Current showControls:', showControls);
+              setShowControls(prev => {
+                console.log('🔄 setShowControls: changing from', prev, 'to', !prev);
+                return !prev;
+              });
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              console.log('👆 Menu button touch');
             }}
             className="bg-black/30 backdrop-blur-sm"
           >
