@@ -44,21 +44,12 @@ export const useAudio = () => {
       console.log('Audio devices found:', mappedDevices);
       setAudioDevices(mappedDevices);
       
-      // Auto-select USB-C microphone if available
-      const usbMic = mappedDevices.find(d => d.type === 'usb');
-      if (usbMic && !selectedAudioDevice) {
-        setSelectedAudioDevice(usbMic);
-        console.log('Auto-selected USB microphone:', usbMic.label);
-      } else if (mappedDevices.length > 0 && !selectedAudioDevice) {
-        setSelectedAudioDevice(mappedDevices[0]);
-      }
-      
       return mappedDevices;
     } catch (error) {
       console.error('Failed to enumerate audio devices:', error);
       return [];
     }
-  }, [selectedAudioDevice]);
+  }, []); // Remove selectedAudioDevice dependency to prevent loop
 
   const switchAudioDevice = useCallback(async (deviceId: string): Promise<void> => {
     const device = audioDevices.find(d => d.deviceId === deviceId);
@@ -115,6 +106,21 @@ export const useAudio = () => {
       return false;
     }
   }, []);
+
+  // Auto-select audio device when devices change
+  useEffect(() => {
+    if (audioDevices.length > 0 && !selectedAudioDevice) {
+      // Auto-select USB-C microphone if available
+      const usbMic = audioDevices.find(d => d.type === 'usb');
+      if (usbMic) {
+        setSelectedAudioDevice(usbMic);
+        console.log('Auto-selected USB microphone:', usbMic.label);
+      } else {
+        setSelectedAudioDevice(audioDevices[0]);
+        console.log('Auto-selected first available microphone:', audioDevices[0].label);
+      }
+    }
+  }, [audioDevices, selectedAudioDevice]);
 
   // Initialize audio devices on mount
   useEffect(() => {

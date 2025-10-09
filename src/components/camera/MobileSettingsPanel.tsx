@@ -24,15 +24,27 @@ export const MobileSettingsPanel = ({
   camera,
   audio
 }: MobileSettingsPanelProps) => {
+  // Debug: log when panel opens/closes
+  console.log('📱 MobileSettingsPanel render - isOpen:', isOpen);
+  
   if (!isOpen) {
+    console.log('📱 MobileSettingsPanel - not rendering (isOpen is false)');
     return null;
   }
+
+  console.log('📱 MobileSettingsPanel - rendering panel');
 
   return (
     <div
       className="fixed inset-0 z-[9999] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 lg:hidden"
-      onClick={(e) => e.stopPropagation()}
-      onTouchEnd={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        console.log('📱 MobileSettingsPanel - background clicked');
+        e.stopPropagation();
+      }}
+      onTouchEnd={(e) => {
+        console.log('📱 MobileSettingsPanel - background touch end');
+        e.stopPropagation();
+      }}
     >
       <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-gray-900/95 backdrop-blur-sm border-b border-white/10">
         <h2 className="text-white text-lg font-semibold">Paramètres</h2>
@@ -40,9 +52,18 @@ export const MobileSettingsPanel = ({
           variant="ghost"
           size="sm"
           onClick={(e) => {
+            console.log('📱 MobileSettingsPanel - close button clicked');
             e.preventDefault();
             e.stopPropagation();
             onClose();
+          }}
+          onTouchStart={(e) => {
+            console.log('📱 MobileSettingsPanel - close button touch start');
+            e.stopPropagation();
+          }}
+          onTouchEnd={(e) => {
+            console.log('📱 MobileSettingsPanel - close button touch end');
+            e.stopPropagation();
           }}
           className="text-white hover:bg-white/10"
         >
