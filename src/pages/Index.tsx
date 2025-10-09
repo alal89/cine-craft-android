@@ -315,14 +315,12 @@ const Index = () => {
               e.preventDefault();
               e.stopPropagation();
               console.log('🔘 Menu button clicked! Current showControls:', showControls);
-              setShowControls(prev => {
-                console.log('🔄 setShowControls: changing from', prev, 'to', !prev);
-                return !prev;
-              });
+              const newValue = !showControls;
+              setShowControls(newValue);
             }}
-            onTouchStart={(e) => {
+            onTouchEnd={(e) => {
+              e.preventDefault();
               e.stopPropagation();
-              console.log('👆 Menu button touch');
             }}
             className="bg-black/30 backdrop-blur-sm"
           >
@@ -380,6 +378,10 @@ const Index = () => {
                 const newValue = !showControls;
                 console.log('⚙️ Settings button clicked! Changing showControls from', showControls, 'to', newValue);
                 setShowControls(newValue);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
               }}
               title={showControls ? "Fermer les paramètres" : "Ouvrir les paramètres"}
               className={`bg-black/30 backdrop-blur-sm ${showControls ? 'bg-cinema-primary/30' : ''}`}
