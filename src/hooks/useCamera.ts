@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { cameraLogger } from '@/utils/logger';
 
 export interface CameraDevice {
   deviceId: string;
@@ -143,7 +144,7 @@ export const useCamera = () => {
 
       const videoTrack = newStream.getVideoTracks()[0];
       const settings = videoTrack.getSettings();
-      console.log('Camera initialized with settings:', settings);
+      cameraLogger.success('Initialized with settings:', settings);
       
       const device = availableDevices.find(d => d.deviceId === settings.deviceId);
       if (device) {
