@@ -29,51 +29,35 @@ const Index = () => {
   const storage = useStorage();
   const audio = useAudio();
 
-  // Initialize camera on mount
-  useEffect(() => {
-    let mounted = true;
-    
-    const initCamera = async () => {
-      // Small delay to ensure DOM is ready
-      await new Promise(resolve => setTimeout(resolve, 300));
+  const [cameraReady, setCameraReady] = useState(false);
+
+  // Initialize camera manually - better for Firefox Android
+  const initializeCamera = async () => {
+    try {
+      console.log('🎥 Initializing camera...');
+      const stream = await camera.initialize();
       
-      if (!mounted) return;
-      
-      try {
-        console.log('🎥 Initializing camera...');
-        const stream = await camera.initialize();
+      if (stream && stream.active) {
+        console.log('✅ Camera stream active:', stream.id);
+        setCameraReady(true);
+        const deviceCount = camera.devices?.length || 0;
         
-        if (!mounted) return;
-        
-        if (stream && stream.active) {
-          console.log('✅ Camera stream active:', stream.id);
-          const deviceCount = camera.devices?.length || 0;
-          
-          toast({
-            title: "Caméra prête",
-            description: deviceCount > 0 ? `${deviceCount} objectif(s)` : "Caméra active",
-          });
-        } else {
-          console.error('❌ Stream inactive or null');
-        }
-      } catch (error: any) {
-        console.error('❌ Camera init failed:', error);
-        if (mounted) {
-          toast({
-            title: "Erreur caméra",
-            description: error.message || "Vérifiez les permissions",
-            variant: "destructive" as any,
-          });
-        }
+        toast({
+          title: "Caméra prête",
+          description: deviceCount > 0 ? `${deviceCount} objectif(s)` : "Caméra active",
+        });
+      } else {
+        console.error('❌ Stream inactive or null');
       }
-    };
-    
-    initCamera();
-    
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    } catch (error: any) {
+      console.error('❌ Camera init failed:', error);
+      toast({
+        title: "Erreur caméra",
+        description: error.message || "Appuyez pour réessayer",
+        variant: "destructive" as any,
+      });
+    }
+  };
 
   const handleCapture = async () => {
     try {
@@ -232,10 +216,13 @@ const Index = () => {
             {!camera.stream && (
               <div className="absolute inset-0 bg-cinema-surface flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-cinema-primary/20 flex items-center justify-center animate-pulse">
-                    <span className="text-2xl">📸</span>
-                  </div>
-                  <p className="text-cinema-text-secondary">Initialisation...</p>
+                  <button
+                    onClick={initializeCamera}
+                    className="w-20 h-20 mx-auto mb-4 rounded-full bg-cinema-primary/30 hover:bg-cinema-primary/40 flex items-center justify-center transition-all active:scale-95"
+                  >
+                    <span className="text-4xl">📸</span>
+                  </button>
+                  <p className="text-cinema-text-secondary font-medium">Appuyez pour démarrer</p>
                   <p className="text-cinema-text-muted text-sm mt-2">Autoriser l'accès caméra</p>
                 </div>
               </div>
