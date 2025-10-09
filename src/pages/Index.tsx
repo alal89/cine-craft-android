@@ -24,6 +24,11 @@ const Index = () => {
   const [zoom, setZoom] = useState(1);
   const { toast } = useToast();
   
+  // Debug: log when showControls changes
+  useEffect(() => {
+    console.log('🎛️ showControls changed to:', showControls);
+  }, [showControls]);
+  
   // New hooks for advanced camera and storage management
   const camera = useCamera();
   const storage = useStorage();
@@ -196,7 +201,13 @@ const Index = () => {
     <>
       {/* Mobile settings panel - OUTSIDE main container to avoid z-index issues */}
       {showControls && (
-        <div className="fixed inset-0 z-[9999] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 lg:hidden">
+        <div 
+          className="fixed inset-0 z-[9999] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 lg:hidden"
+          onClick={(e) => {
+            // Prevent clicks inside the panel from closing it
+            e.stopPropagation();
+          }}
+        >
           {/* Close button */}
           <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-gray-900/95 backdrop-blur-sm border-b border-white/10">
             <h2 className="text-white text-lg font-semibold">Paramètres</h2>
@@ -205,6 +216,7 @@ const Index = () => {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
+                console.log('❌ Closing settings panel');
                 setShowControls(false);
               }}
               className="text-white hover:bg-white/10"
@@ -346,9 +358,11 @@ const Index = () => {
             variant="secondary"
             size="sm"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
-              console.log('Menu clicked, showControls:', showControls);
-              setShowControls(!showControls);
+              const newValue = !showControls;
+              console.log('🔘 Menu button clicked! Changing showControls from', showControls, 'to', newValue);
+              setShowControls(newValue);
             }}
             className="bg-black/30 backdrop-blur-sm"
           >
@@ -401,8 +415,11 @@ const Index = () => {
               variant="secondary"
               size="sm"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
-                setShowControls(!showControls);
+                const newValue = !showControls;
+                console.log('⚙️ Settings button clicked! Changing showControls from', showControls, 'to', newValue);
+                setShowControls(newValue);
               }}
               title={showControls ? "Fermer les paramètres" : "Ouvrir les paramètres"}
               className={`bg-black/30 backdrop-blur-sm ${showControls ? 'bg-cinema-primary/30' : ''}`}
