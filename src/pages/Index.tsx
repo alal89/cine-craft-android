@@ -23,16 +23,40 @@ const Index = () => {
   const [showControls, setShowControls] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [lastToggleTime, setLastToggleTime] = useState(0);
   const { toast } = useToast();
   
-  // Debug: log when showControls changes
+  // Function to safely toggle showControls with debouncing
+  const toggleShowControls = useCallback(() => {
+    const now = Date.now();
+    if (now - lastToggleTime < 300) { // 300ms debounce
+      console.log('🚫 Toggle debounced - too soon after last toggle');
+      return;
+    }
+    setLastToggleTime(now);
+    setShowControls(prev => {
+      console.log('🔄 Safe toggle: changing from', prev, 'to', !prev);
+      return !prev;
+    });
+  }, [lastToggleTime]);
+  
+  // Debug: log when showControls changes with stack trace
   useEffect(() => {
     console.log('🎛️ Index - showControls changed to:', showControls);
+    console.trace('📍 showControls change stack trace');
   }, [showControls]);
 
-  // Debug: log all re-renders
+  // Debug: log all re-renders with dependencies
   useEffect(() => {
     console.log('🔄 Index component re-rendered');
+    console.log('📊 Current state:', {
+      showControls,
+      currentMode,
+      isRecording,
+      showGrid,
+      zoom,
+      cameraReady
+    });
   });
   
   // New hooks for advanced camera and storage management
@@ -315,14 +339,18 @@ const Index = () => {
               e.preventDefault();
               e.stopPropagation();
               console.log('🔘 Menu button clicked! Current showControls:', showControls);
-              setShowControls(prev => {
-                console.log('🔄 setShowControls: changing from', prev, 'to', !prev);
-                return !prev;
-              });
+              console.log('⏰ Click timestamp:', Date.now());
+              toggleShowControls();
             }}
             onTouchStart={(e) => {
               e.stopPropagation();
-              console.log('👆 Menu button touch');
+              console.log('👆 Menu button touch start');
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('👆 Menu button touch end');
+              // Don't call toggleShowControls here to avoid double-triggering
             }}
             className="bg-black/30 backdrop-blur-sm"
           >
@@ -377,9 +405,19 @@ const Index = () => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const newValue = !showControls;
-                console.log('⚙️ Settings button clicked! Changing showControls from', showControls, 'to', newValue);
-                setShowControls(newValue);
+                console.log('⚙️ Settings button clicked! Current showControls:', showControls);
+                console.log('⏰ Settings click timestamp:', Date.now());
+                toggleShowControls();
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                console.log('👆 Settings button touch start');
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('👆 Settings button touch end');
+                // Don't call toggleShowControls here to avoid double-triggering
               }}
               title={showControls ? "Fermer les paramètres" : "Ouvrir les paramètres"}
               className={`bg-black/30 backdrop-blur-sm ${showControls ? 'bg-cinema-primary/30' : ''}`}
